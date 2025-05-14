@@ -37,7 +37,7 @@ class RoleInfo:
         
 class PartyMember: # パーティメンバ親クラス
     def __init__(self, user:discord.Member|None, roles:set[discord.Role]):
-	    self.user:discord.Member|None = user
+        self.user:discord.Member|None = user
         self.roles:set[discord.Role] = roles
 
 class Participant(PartyMember): # メンバと可能ロール
