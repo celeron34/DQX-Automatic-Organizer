@@ -34,20 +34,24 @@ class RoleInfo:
     def __init__(self, emoji:discord.Emoji, count:int):
         self.emoji:discord.Emoji = emoji
         self.count:int = count
-
-class Participant: # メンバと可能ロール
-    def __init__(self, user:discord.User|discord.Member, roles:set[discord.Role]):
-        self.user:discord.Member|Guest = user
+        
+class PartyMember: # パーティメンバ親クラス
+    def __init__(self, user:discord.Member|None, roles:set[discord.Role]):
+	    self.user:discord.Member|None = user
         self.roles:set[discord.Role] = roles
+
+class Participant(PartyMember): # メンバと可能ロール
+    def __init__(self, user:discord.User|discord.Member, roles:set[discord.Role]):
+        super.__init__(user, roles)
         self.mention:str = user.mention
-        self.hiSpeed:bool = False
         self.id = user.id
         self.display_name = user.display_name
 
-class Guest: # Party class のためのダミー
+class Guest(PartyMember): # Party class のためのダミー
     def __init__(self):
-        self.user = None
-        self.roles = set()
+        super.__init__(user=None, roles=set())
+        # self.user = None
+        # self.roles = set()
         self.mention = 'ゲスト'
         self.id = -1
         self.display_name = 'ゲスト'
