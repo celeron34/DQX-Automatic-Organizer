@@ -959,11 +959,12 @@ async def f_timetable(ctx:discord.ApplicationContext):
 @client.slash_command(name='f-restart', description='編成員Fを再起動')
 async def f_restart(ctx:discord.ApplicationContext):
     print(f'{dt.now()} slash command restart from {ctx.interaction.user}')
+    if len(ROBIN_GUILD.timeTable) == 0:
+        await f_reboot(ctx)
     if ROBIN_GUILD.timeTable[0] - delta(minutes=40) < dt.now():
-        await ctx.respond('パーティ機能作動中か，まもなくパーティ編成を開始します\n再起動スケジュールを選択してください', view=RebootView(timeout=60, disable_on_timeout=False))
+        await ctx.respond('パーティ機能作動中または，まもなくパーティ編成を開始します\n再起動スケジュールを選択してください', view=RebootView(timeout=60, disable_on_timeout=False))
     else:
-        await ctx.respond('再起動します')
-        await f_reboot()
+        await f_reboot(ctx)
 
 @client.slash_command(name='f-stop', description='再起動しても改善しない場合\n編成員Fを停止します\n開発陣へ連絡')
 async def f_stop(ctx:discord.ApplicationContext):
@@ -985,7 +986,8 @@ async def f_get_participant_data(ctx:discord.ApplicationContext):
         csvFile = discord.File(fp=f, filename=dt.now().strftime('participant_data_%y%m%d-%H%M%S.csv'))
     await ctx.respond(f'{ctx.interaction.user.mention}\nフォーマットは\n`年-月-日-時,ユーザーID,希望`\n希望は "l":殲滅 "h":高速', file=csvFile)
 
-async def f_reboot():
+async def f_reboot(ctx:discord.ApplicationContext):
+    ctx.respond('動作を停止します')
     Popen([executable, '-u'] + argv, cwd=getcwd())  # ボットを再起動
     await client.close()  # ボットを終了
     exit()
