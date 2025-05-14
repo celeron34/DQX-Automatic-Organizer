@@ -42,14 +42,14 @@ class PartyMember: # パーティメンバ親クラス
 
 class Participant(PartyMember): # メンバと可能ロール
     def __init__(self, user:discord.User|discord.Member, roles:set[discord.Role]):
-        super.__init__(user, roles)
+        super().__init__(user, roles)
         self.mention:str = user.mention
         self.id = user.id
         self.display_name = user.display_name
 
 class Guest(PartyMember): # Party class のためのダミー
     def __init__(self):
-        super.__init__(user=None, roles=set())
+        super().__init__(user=None, roles=set())
         # self.user = None
         # self.roles = set()
         self.mention = 'ゲスト'
@@ -87,8 +87,8 @@ class LightParty(Party):
             msg = await ROBIN_GUILD.PARTY_CH.send(f'{member.mention}加入中のパーティには参加申請できません')
             await msg.delete(delay=5)
             return False
-        self.joins[requestMessage] = member
         requestMessage = await self.thread.send(f'@here {member.display_name} から加入申請', view=ApproveView(timeout=600))
+        self.joins[requestMessage] = member
         
          
     async def addMember(self, participant:Participant|Guest) -> bool:
@@ -132,7 +132,7 @@ class LightParty(Party):
     #     pass
         
 
-class HispeedParty(Party):
+class SpeedParty(Party):
     def __init__(self, number, rolesNum:dict[discord.Role, int]):
         super().__init__(number)
         self.members:dict[discord.Role,list[Participant|None]] = {role:[None] * num for role, num in rolesNum.items()}
@@ -183,7 +183,7 @@ class Guild:
         self.PARTY_LOG:discord.TextChannel = None # パーティログチャンネル
 
         self.reclutingMessage:discord.Message = None # 募集メッセージ
-        self.parties:list[HispeedParty|LightParty]|None = None # パーティ一覧
+        self.parties:list[SpeedParty|LightParty]|None = None # パーティ一覧
         self.timeTable:list[dt] = [] # 防衛軍タイムテーブル
         # self.timeTableThread:ThreadPoolExecutor = None # タイムテーブルスレッド
 
@@ -314,7 +314,7 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
                 party = searchParty(reaction.message, ROBIN_GUILD.parties)
                 if user.id not in map(lambda x:x.id, party.members): # 別のパーティ
                     if len(party.members) > 0: # 誰か１人でもいる場合 承認要請
-                        party.joinRequest(user)
+                        await party.joinRequest(user)
                         thread = reaction.message.thread
                         if thread == None:
                             message = await ROBIN_GUILD.PARTY_CH.fetch_message(reaction.message.id)
@@ -322,7 +322,7 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
                         party.joins[await thread.send(f'@here {user.display_name} から加入申請', view=ApproveView(timeout=600))] = user
                     else:
                         await reaction.message.remove_reaction(reaction.emoji, user)
-                        party.addMember(Participant(user, set(role for role in user.roles if role in ROBIN_GUILD.ROLES.keys())))
+                        await party.addMember(Participant(user, set(role for role in user.roles if role in ROBIN_GUILD.ROLES.keys())))
                         # await joinParticipant(Participant(user, set(role for role in user.roles if role in ROBIN_GUILD.ROLES.keys())), party)
                 else:
                     await reaction.message.remove_reaction(reaction.emoji, user)
@@ -449,7 +449,7 @@ async def loop():
                                             view=FormationTopView(timeout=3600))
             
             for party in ROBIN_GUILD.parties:
-                if type(party) == HispeedParty:
+                if type(party) == SpeedParty:
                     party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
                 elif type(party) == LightParty:
                     party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
@@ -459,7 +459,7 @@ async def loop():
         print(f'{dt.now()} Create Threads')
         for party in ROBIN_GUILD.parties:
             try:
-                if type(party) == HispeedParty:
+                if type(party) == SpeedParty:
                     party.thread = await party.message.create_thread(name=f'SpeedParty:{party.number}', auto_archive_duration=60)
                 elif type(party) == LightParty:
                     party.thread = await party.message.create_thread(name=f'Party:{party.number}', auto_archive_duration=60)
@@ -542,21 +542,21 @@ def markdownEsc(line:str):
 
 ##############################################################################################
 ## パーティ編成アルゴリズム
-def hispeedFormation(participants:list[Participant]) -> list[HispeedParty]:
+def hispeedFormation(participants:list[Participant]) -> list[SpeedParty]:
     '''
     <h1>Parameter</h1>
     players: list[Participant]
     <h1>Return</h1>
     List[List[Participant]]
     '''
-    parties:list[HispeedParty] = []
-    parties.append(HispeedParty(len(parties)+1, {role:info.count for role, info in ROBIN_GUILD.ROLES.items()}))
+    parties:list[SpeedParty] = []
+    parties.appen(SpeedParty(len(parties)+1, {role:info.count for role, info in ROBIN_GUILD.ROLES.items()}))
     loopFlg = True
     while loopFlg:
         partyNoneCount = parties[-1].noneCount()
         if partyNoneCount > len(participants) or partyNoneCount == 0 and len(participants) < 8: break
         if partyNoneCount == 0: # 空きのあるパーティがない 新しい空のパーティを作る
-            parties.append(HispeedParty(len(parties)+1, {role:info.count for role, info in ROBIN_GUILD.ROLES.items()}))
+            parties.append(SpeedParty(len(parties)+1, {role:info.count for role, info in ROBIN_GUILD.ROLES.items()}))
         for participantNum in range(len(participants)):
             if addHispeedParty(parties, participants[participantNum]):
                 del participants[participantNum]
@@ -578,7 +578,7 @@ def hispeedFormation(participants:list[Participant]) -> list[HispeedParty]:
     
     return parties
 
-def addHispeedParty(parties:list[HispeedParty], participant:Participant, roles:set[discord.Role]=set()) -> bool:
+def addHispeedParty(parties:list[SpeedParty], participant:Participant, roles:set[discord.Role]=set()) -> bool:
     for role in [role for role in participant.roles if role not in roles]:
         if None in parties[-1].members[role]:
             # 空きがあったから入れて True返す
@@ -715,7 +715,7 @@ class ApproveView(discord.ui.View):
                 for p in {p for p in ROBIN_GUILD.parties if joinMember in p.joins.values()}: # 参加リアクション全削除
                     await p.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember)
                 await thread.add_user(joinMember) # パーティへ追加
-                party.addMember(Participant(joinMember, set(role for role in user.roles if role in ROBIN_GUILD.ROLES.keys())))
+                await party.addMember(Participant(joinMember, set(role for role in user.roles if role in ROBIN_GUILD.ROLES.keys())))
                 ################################################################
                 ## joins のメッセージをすべて Disable にしたい
                 ################################################################
@@ -809,7 +809,7 @@ class PartyView(discord.ui.View):
             return
         if interaction.user in map(lambda x:x.user, party.members): # パーティメンバである
             print('パーティメンバによるアクション')
-            party.removeGuest()
+            await party.removeGuest()
 
 class FormationTopView(discord.ui.View):
     def __init__(self, *items, timeout = None, disable_on_timeout = True):
@@ -987,11 +987,10 @@ async def f_get_participant_data(ctx:discord.ApplicationContext):
     await ctx.respond(f'{ctx.interaction.user.mention}\nフォーマットは\n`年-月-日-時,ユーザーID,希望`\n希望は "l":殲滅 "h":高速', file=csvFile)
 
 async def f_reboot(ctx:discord.ApplicationContext):
-    ctx.respond('動作を停止します')
+    await ctx.respond('再起動します')
     Popen([executable, '-u'] + argv, cwd=getcwd())  # ボットを再起動
     await client.close()  # ボットを終了
     exit()
-
 
 # @client.slash_command(name='f-get-member-id', description='メンバIDとメンバ表示名を紐づけたファイルを返します')
 # async def f_get_memberID(ctx:discord.ApplicationContext):
