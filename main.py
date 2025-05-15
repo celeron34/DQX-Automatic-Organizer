@@ -550,7 +550,7 @@ def hispeedFormation(participants:list[Participant]) -> list[SpeedParty]:
     List[List[Participant]]
     '''
     parties:list[SpeedParty] = []
-    parties.appen(SpeedParty(len(parties)+1, {role:info.count for role, info in ROBIN_GUILD.ROLES.items()}))
+    parties.append(SpeedParty(len(parties)+1, {role:info.count for role, info in ROBIN_GUILD.ROLES.items()}))
     loopFlg = True
     while loopFlg:
         partyNoneCount = parties[-1].noneCount()
@@ -720,9 +720,7 @@ class ApproveView(discord.ui.View):
                 ## joins のメッセージをすべて Disable にしたい
                 ################################################################
                 del party.joins[message] # 申請削除
-                await thread.starting_message.edit(party.getPartyMessage(ROBIN_GUILD.ROLES)) # スレッドトップ更新
                 await thread.starting_message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember) # リアクション処理
-                await thread.send(f'{joinMember.display_name} が加入\n{party.getPartyMessage(ROBIN_GUILD.ROLES)}')
                 buttonAllDisable(self.children)
                 if type(self.timeout) == float: self.timeout += self.startTime - perf_counter()
                 await interaction.response.edit_message(view=self)
@@ -730,13 +728,12 @@ class ApproveView(discord.ui.View):
                 print('パーティメンバ以外による承認')
                 await interaction.response.defer()
                 msg = await interaction.channel.send(f'{interaction.user.mention}\nパーティメンバ以外は操作できません')
-                msg.delete(delay=5)
+                await msg.delete(delay=5)
                 # if type(self.timeout) == float: self.timeout+= self.startTime - perf_counter()
                 # await interaction.response.edit_message(content='パーティメンバ以外は承認できません', view=self)
                 return
         except Exception as e:
             printTraceback(e)
-            await interaction.response.defer()
 
 class PartyView(discord.ui.View):
     def __init__(self, *items, timeout = None, disable_on_timeout = True):
@@ -856,7 +853,7 @@ class RebootView(discord.ui.View):
         buttonAllDisable(self.children)
         await interaction.response.edit_message(view=self)
         await interaction.respond('再起動します')
-        await f_reboot()
+        await f_reboot(interaction)
         
 
 # async def leaveParty(participant:Participant|Guest|discord.Member|discord.User, targetParty:LightParty):
