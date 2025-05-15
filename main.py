@@ -983,8 +983,8 @@ async def f_get_participant_data(ctx:discord.ApplicationContext):
         csvFile = discord.File(fp=f, filename=dt.now().strftime('participant_data_%y%m%d-%H%M%S.csv'))
     await ctx.respond(f'{ctx.interaction.user.mention}\nフォーマットは\n`年-月-日-時,ユーザーID,希望`\n希望は "l":殲滅 "h":高速', file=csvFile)
 
-async def f_reboot(ctx:discord.ApplicationContext):
-    await ctx.respond('再起動します')
+async def f_reboot(ctx:discord.ApplicationContext|None = None):
+    if ctx: await ctx.respond('再起動します')
     Popen([executable, '-u'] + argv, cwd=getcwd())  # ボットを再起動
     await client.close()  # ボットを終了
     exit()
