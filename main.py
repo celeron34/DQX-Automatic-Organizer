@@ -59,15 +59,15 @@ class Guest(PartyMember): # Party class のためのダミー
 class Party: # パーティ情報 メッセージとパーティメンバ
     def __init__(self, number:int):
         self.number:int = number
-        self.message:discord.Message = None
+        self.message:discord.Message|None = None
         self.joins:dict[discord.Message, discord.User|discord.Member] = dict()
-        self.thread:discord.Thread = None
+        self.thread:discord.Thread|None = None
 
 class LightParty(Party):
     def __init__(self, number, players:set[Participant]=set()):
         super().__init__(number)
         self.members:set[Participant] = players
-        self.threadTopMessage:discord.Message = None
+        self.threadTopMessage:discord.Message|None = None
 
     def getPartyMessage(self, guildRolesEmoji:dict[discord.Role,RoleInfo]) -> str:
         msg = f'\| 【パーティ:{self.number}】'
@@ -89,16 +89,17 @@ class LightParty(Party):
             return False
         requestMessage = await self.thread.send(f'@here {member.display_name} から加入申請', view=ApproveView(timeout=600))
         self.joins[requestMessage] = member
-        
-         
+
     async def addMember(self, participant:Participant|Guest) -> bool:
         if participant.user in map(lambda x:x.user, self.members): return False
         self.members.add(participant)
+        if self.thread is None: return True
         print(f'PartyNum: {self.number} JoinMember: {participant.display_name}')
         await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
         await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
         if isinstance(participant, Participant): # ゲストではなく，メンバならスレッドに入れる
             await self.thread.add_user(participant.user)
+        return True
     
     async def removeMember(self, member:Participant|discord.Member|Guest) -> bool:
         if isinstance(member, Guest):
@@ -131,7 +132,6 @@ class LightParty(Party):
     #     '''パーティ同盟'''
     #     pass
         
-
 class SpeedParty(Party):
     def __init__(self, number, rolesNum:dict[discord.Role, int]):
         super().__init__(number)
@@ -282,7 +282,6 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
     #         # 想定しないリアクションを削除
     #         await reaction.message.remove_reaction(reaction.emoji, user)
     #     return
-
     
     # 途中参加申請
     if ROBIN_GUILD.parties != None:
@@ -478,7 +477,6 @@ async def loop():
 
         # ROBIN_GUILD.reclutingMessage = None
 
-    
     ######################################################
     # 0分前 タイムテーブル更新
     elif now == ROBIN_GUILD.timeTable[0]:
@@ -627,7 +625,7 @@ def lowspeedFormation(participants:list[Participant], partyNum:int) -> list[Ligh
         partyNum += 1
         parties.append(LightParty(partyNum, set()))
         for _ in range(n):
-            parties[-1].members.add(participants[p])
+            parties[-1].addMember(participants[p])
             p += 1
 
     return parties
@@ -857,7 +855,6 @@ class RebootView(discord.ui.View):
         await interaction.respond('再起動します')
         await f_reboot(interaction)
         
-
 # async def leaveParty(participant:Participant|Guest|discord.Member|discord.User, targetParty:LightParty):
 #     '''離脱処理からメッセージまで'''
 #     if type(participant) in (discord.User, discord.Member):
