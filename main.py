@@ -717,7 +717,7 @@ class ApproveView(discord.ui.View):
                 for p in {p for p in ROBIN_GUILD.parties if joinMember in p.joins.values()}: # 参加リアクション全削除
                     await p.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember)
                 await thread.add_user(joinMember) # パーティへ追加
-                await party.addMember(Participant(joinMember, set(role for role in user.roles if role in ROBIN_GUILD.ROLES.keys())))
+                await party.addMember(Participant(joinMember, set(role for role in joinMember.roles if role in ROBIN_GUILD.ROLES.keys())))
                 ################################################################
                 ## joins のメッセージをすべて Disable にしたい
                 ################################################################
