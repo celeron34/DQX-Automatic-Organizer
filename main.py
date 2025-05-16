@@ -655,44 +655,46 @@ class RoleManageView(discord.ui.View):
         role = emoji2role(emoji)
         if role in user.roles:
             # ロールがあるから削除
+            print(f'{dt.now()} Delete role {user} {label}')
             await user.remove_roles(role)
             rep = await ROBIN_GUILD.COMMAND_CH.send(f'{user.mention} [{label}] を削除')
         else:
             # ロールがないから追加
+            print(f'{dt.now()} Add role {user} {label}')
             await user.add_roles(role)
             rep = await ROBIN_GUILD.COMMAND_CH.send(f'{user.mention} [{label}] を追加')
         await rep.delete(delay=5)
 
     @discord.ui.button(label='魔戦', emoji='<:magic_knight:1345708222962470952>', row=1)
     async def magicKnight(self, button:discord.ui.Button, interaction:discord.Interaction):
+        await interaction.response.defer()
         await self.roleManage(button.label, button.emoji, interaction.user)
-        await interaction.response.edit_message(view=self)
     @discord.ui.button(label='先導', emoji='<:boomerang:1345710507398529085>', row=1)
     async def boomerang(self, button:discord.ui.Button, interaction:discord.Interaction):
+        await interaction.response.defer()
         await self.roleManage(button.label, button.emoji, interaction.user)
-        await interaction.response.edit_message(view=self)
     @discord.ui.button(label='霧', emoji='<:buttarfly:1345708049838641234>', row=1)
     async def butterfly(self, button:discord.ui.Button, interaction:discord.Interaction):
+        await interaction.response.defer()
         await self.roleManage(button.label, button.emoji, interaction.user)
-        await interaction.response.edit_message(view=self)
     @discord.ui.button(label='札', emoji='<:relay:1345708117618458695>', row=2)
     async def card(self, button:discord.ui.Button, interaction:discord.Interaction):
+        await interaction.response.defer()
         await self.roleManage(button.label, button.emoji, interaction.user)
-        await interaction.response.edit_message(view=self)
     @discord.ui.button(label='中継', emoji='<:way:1345708094251859999>', row=2)
     async def way(self, button:discord.ui.Button, interaction:discord.Interaction):
+        await interaction.response.defer()
         await self.roleManage(button.label, button.emoji, interaction.user)
-        await interaction.response.edit_message(view=self)
     @discord.ui.button(label='回復', emoji='<:heal:1345708066741424138>', row=2)
     async def heal(self, button:discord.ui.Button, interaction:discord.Interaction):
+        await interaction.response.defer()
         await self.roleManage(button.label, button.emoji, interaction.user)
-        await interaction.response.edit_message(view=self)
     @discord.ui.button(label='オールクリア', row=3)
     async def all_clear(self, button:discord.ui.Button, interaction:discord.Interaction):
+        await interaction.response.defer()
         for role in ROBIN_GUILD.ROLES.keys():
             if role in interaction.user.roles:
                 await interaction.user.remove_roles(role)
-        await interaction.response.defer()
         rep = await interaction.channel.send(f'{interaction.user.mention}全ての高速可能ロールを削除')
         await rep.delete(delay=5)
 
