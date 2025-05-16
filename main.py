@@ -60,7 +60,6 @@ class Party: # パーティ情報 メッセージとパーティメンバ
     def __init__(self, number:int):
         self.number:int = number
         self.message:discord.Message = None
-        self.threadTopMessage:discord.Message = None
         self.joins:dict[discord.Message, discord.User|discord.Member] = dict()
         self.thread:discord.Thread = None
 
@@ -68,6 +67,7 @@ class LightParty(Party):
     def __init__(self, number, players:set[Participant]=set()):
         super().__init__(number)
         self.members:set[Participant] = players
+        self.threadTopMessage:discord.Message = None
 
     def getPartyMessage(self, guildRolesEmoji:dict[discord.Role,RoleInfo]) -> str:
         msg = f'\| 【パーティ:{self.number}】'
@@ -464,8 +464,8 @@ async def loop():
                 elif type(party) == LightParty:
                     party.thread = await party.message.create_thread(name=f'Party:{party.number}', auto_archive_duration=60)
                     await party.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
-
-                party.threadTopMessage = await party.thread.send(view=PartyView(timeout=3600))
+                    party.threadTopMessage = await party.thread.send(view=PartyView(timeout=3600))
+                    
             except Exception as e:
                 printTraceback(e)
         
