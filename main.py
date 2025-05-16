@@ -64,10 +64,13 @@ class Party: # パーティ情報 メッセージとパーティメンバ
         self.thread:discord.Thread|None = None
 
 class LightParty(Party):
-    def __init__(self, number, players:set[Participant]=set()):
+    def __init__(self, number, players:list[Participant]=set()):
         super().__init__(number)
-        self.members:set[Participant] = players
+        self.members:list[Participant] = players
         self.threadTopMessage:discord.Message|None = None
+
+    def membersNum(self) -> int:
+        return len(self.members)
 
     def getPartyMessage(self, guildRolesEmoji:dict[discord.Role,RoleInfo]) -> str:
         msg = f'\| 【パーティ:{self.number}】'
@@ -92,7 +95,7 @@ class LightParty(Party):
 
     async def addMember(self, participant:Participant|Guest) -> bool:
         if participant.user in map(lambda x:x.user, self.members): return False
-        self.members.add(participant)
+        self.members.append(participant)
         if self.thread is None: return True
         print(f'PartyNum: {self.number} JoinMember: {participant.display_name}')
         await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
@@ -105,7 +108,7 @@ class LightParty(Party):
         if isinstance(member, Guest):
             return self.removeGuest()
         elif isinstance(member, Participant) or isinstance(member, discord.Member):
-            if isinstance(member, Participant): member = member.user
+            if isinstance(member, Participant): member = member.user # memberを必ずMemberクラスにする
             if member not in map(lambda x:x.user, self.members): return False
             for participant in self.members:
                 if participant.user == member:
@@ -292,9 +295,9 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
                 for party in ROBIN_GUILD.parties:
                     if isinstance(party, LightParty):
                         if (minParty == None or \
-                                len(minParty.members) + len(minParty.joins) > \
-                                len(   party.members) + len(   party.joins)) and \
-                                len(party.members) + len(party.joins) <= 3:
+                                minParty.membersNum() + len(minParty.joins) > \
+                                party.membersNum() + len(party.joins)) and \
+                                party.membersNum() + len(party.joins) <= 3:
                             minParty = party
                 if minParty == None:
                     await createNewParty(user)
