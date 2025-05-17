@@ -30,6 +30,27 @@ client = commands.Bot(
 
 rebootScadule:bool = False
 
+speedPartyMessage = '''ーーーーーーーーーー
+【パーティー１】
+<:boomerang:1345710507398529085> 先導レン
+<:card:1345708117618458695> 札バト(まも)
+<:relay:1345708117618458695> 中継まも <:leader:1365542039017754706> リダ(同盟誘う方)
+<:buttarfly:1345708049838641234> 霧レン
+1. 中継が「札」「霧レン」を誘う
+2. 先導から「中継PT3人」を誘う
+3. リダを渡す(中継へ)
+
+【パーティー２】
+<:magic_knight:1345708222962470952> 魔戦 <:leader:1365542039017754706> リダ(同盟受ける方)
+<:heal:1345708066741424138> 回１まも
+<:heal:1345708066741424138> 回２まも
+<:heal:1345708066741424138> 特攻(GFまも)
+誘い順は何でもOK
+
+★リダは変更オッケーです！
+持ち替えの無い人(札、先導以外)推奨
+ーーーーーーーーーー'''
+
 class RoleInfo:
     def __init__(self, emoji:discord.Emoji, count:int):
         self.emoji:discord.Emoji = emoji
@@ -459,6 +480,12 @@ async def loop():
         print(f'{dt.now()} Formation END')
 
         print(f'{dt.now()} Create Threads')
+
+        try:
+            if any(map(lambda x:isinstance(x, SpeedParty), ROBIN_GUILD.parties)):
+                await ROBIN_GUILD.PARTY_CH.send(speedPartyMessage)
+        except Exception as e:
+            printTraceback(e)
         for party in ROBIN_GUILD.parties:
             try:
                 if type(party) == SpeedParty:
@@ -678,11 +705,11 @@ class RoleManageView(discord.ui.View):
     async def butterfly(self, button:discord.ui.Button, interaction:discord.Interaction):
         await interaction.response.defer()
         await self.roleManage(button.label, button.emoji, interaction.user)
-    @discord.ui.button(label='札', emoji='<:relay:1345708117618458695>', row=2)
+    @discord.ui.button(label='札', emoji='<:card:1345708117618458695>', row=2)
     async def card(self, button:discord.ui.Button, interaction:discord.Interaction):
         await interaction.response.defer()
         await self.roleManage(button.label, button.emoji, interaction.user)
-    @discord.ui.button(label='中継', emoji='<:way:1345708094251859999>', row=2)
+    @discord.ui.button(label='中継', emoji='<:relay:1345708117618458695>', row=2)
     async def way(self, button:discord.ui.Button, interaction:discord.Interaction):
         await interaction.response.defer()
         await self.roleManage(button.label, button.emoji, interaction.user)
