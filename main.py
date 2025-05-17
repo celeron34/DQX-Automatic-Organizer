@@ -87,7 +87,7 @@ class Party: # パーティ情報 メッセージとパーティメンバ
 class LightParty(Party):
     def __init__(self, number, players:list[Participant]=set()):
         super().__init__(number)
-        self.members:list[Participant] = players
+        self.members:list[Participant|Guest] = players
         self.threadTopMessage:discord.Message|None = None
 
     def membersNum(self) -> int:
@@ -152,6 +152,9 @@ class LightParty(Party):
         self.thread.send('ゲストがいないためパーティに変更はありません')
         return False
     
+    def isEmpty(self) -> bool:
+        return any(map(lambda x:isinstance(x, Participant), self.members))
+        
     # async def unionParty(self):
     #     '''パーティ同盟'''
     #     pass
@@ -776,7 +779,7 @@ class PartyView(discord.ui.View):
     @discord.ui.button(label='パーティを抜ける')
     async def leaveParty(self, button:discord.ui.Button, interaction:discord.Interaction):
         print(f'{dt.now()} Leave party button is pressed from {interaction.user.display_name}')
-        party = searchParty(interaction.message, ROBIN_GUILD.parties)
+        party:LightParty = searchParty(interaction.message, ROBIN_GUILD.parties)
         await interaction.response.defer()
         if party == None:
             print(f'非パーティメンバによるアクション')
@@ -792,23 +795,14 @@ class PartyView(discord.ui.View):
             # partyMemberNum = party.removeMember(interaction.user)
             # await leaveParty(interaction.user, party)
             await party.removeMember(interaction.user)
-
-            # if partyMemberNum == 0:
-            #     print('パーティが0人なのでパーティ情報とそのスレッドを削除')
-            #     try:
-            #         ROBIN_GUILD.parties.remove(party)
-            #     except Exception as e:
-            #         printTraceback(e)
-            #     finally:
-            #         try:
-            #             await party.message.delete()
-            #         except Exception as e:
-            #             printTraceback(e)
-            #         finally:
-            #             return
-            # else:
-            #     await thread.send(f'{interaction.user.display_name} が離脱\n{party.getPartyMessage(ROBIN_GUILD.ROLES)}')
-            #     await thread.starting_message.edit(party.getPartyMessage(ROBIN_GUILD.ROLES))
+            try:
+                if party.isEmpty():
+                    print('パーティが0人')
+                    ROBIN_GUILD.parties.remove(party)
+                    await party.message.delete()
+            except Exception as e:
+                printTraceback(e)
+                
         else: # ユーザーが別パーティメンバ
             print('別パーティによるアクション')
             msg = await interaction.channel.send(f'{interaction.user.mention}パーティメンバ以外は操作できません')
@@ -887,36 +881,6 @@ class RebootView(discord.ui.View):
         await interaction.response.edit_message(view=self)
         await interaction.respond('再起動します')
         await f_reboot(interaction)
-        
-# async def leaveParty(participant:Participant|Guest|discord.Member|discord.User, targetParty:LightParty):
-#     '''離脱処理からメッセージまで'''
-#     if type(participant) in (discord.User, discord.Member):
-#         for member in targetParty.members:
-#             if member.id == participant.id:
-#                 participant = member
-#                 break
-#         else: pass # このパーティに当てはまるIDがない
-#     if targetParty.removeMember(participant) == 0:
-#         print('パーティが0人なのでスレッド削除 (予定)')
-#     await targetParty.thread.send(f'{participant.display_name} が離脱\n{targetParty.getPartyMessage(ROBIN_GUILD.ROLES)}')
-#     await targetParty.thread.starting_message.edit(targetParty.getPartyMessage(ROBIN_GUILD.ROLES))
-#     if type(participant) == Participant:
-#         await targetParty.thread.remove_user(participant.user)
-
-# async def joinParticipant(participant:Participant|Guest, targetParty:LightParty):
-#     '''コルーチン
-#     加入処理からメッセージ生成まで'''
-#     for party in ROBIN_GUILD.parties:
-#         if participant in party.members:
-#             # 別のパーティに加入していた
-#             await party.removeMember(participant)
-#             # await leaveParty(participant, party)
-#     targetParty.addMember(participant)
-#     print(f'PartyNum: {targetParty.number} JoinMember: {participant.display_name}')
-#     await targetParty.thread.send(f'{participant.display_name} が加入\n{targetParty.getPartyMessage(ROBIN_GUILD.ROLES)}')
-#     await targetParty.thread.starting_message.edit(targetParty.getPartyMessage(ROBIN_GUILD.ROLES))
-#     if type(participant) == Participant:
-#         await targetParty.thread.add_user(participant.user)
 
 def buttonAllDisable(children):
     for child in children:
