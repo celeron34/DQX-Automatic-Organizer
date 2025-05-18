@@ -662,7 +662,7 @@ def lowspeedFormation(participants:list[Participant], partyNum:int) -> list[Ligh
     p = 0
     for n in parties_num:
         partyNum += 1
-        parties.append(LightParty(partyNum, set()))
+        parties.append(LightParty(partyNum, []))
         for _ in range(n):
             parties[-1].addMember(participants[p])
             p += 1
