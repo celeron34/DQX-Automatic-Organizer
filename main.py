@@ -389,7 +389,7 @@ async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|disc
     # 参加申請取り消し
     if ROBIN_GUILD.parties != None:
         if reaction.message in map(lambda x:x.message, ROBIN_GUILD.parties) and reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
-            party:LightParty = searchParty(reaction.message, ROBIN_GUILD.parties, lambda x:x.message)
+            party:LightParty = searchParty(reaction.message, ROBIN_GUILD.parties)
             for delMessage, member in party.joins.items():
                 if user == member:
                     del party.joins[delMessage]
