@@ -102,7 +102,7 @@ class LightParty(Party):
         return msg
     
     async def joinRequest(self, member:discord.Member) -> bool:
-        if self.isEmpty(): # パーティが空だった
+        if len(self.members) == 0: # パーティが空だった
             participant = Participant(member, set(role for role in member.roles if role in ROBIN_GUILD.ROLES.keys()))
             await self.addMember(participant)
             return True
@@ -385,12 +385,12 @@ async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|disc
     
     # 参加申請取り消し
     if ROBIN_GUILD.parties != None:
-        if reaction.message in map(lambda x:x.message, ROBIN_GUILD.parties) and reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
-            party:LightParty = searchParty(reaction.message, ROBIN_GUILD.parties, lambda x:x.message)
+        if reaction.message in map(lambda x:x.message, ROBIN_GUILD.parties) and reaction == ROBIN_GUILD.RECLUTING_EMOJI:
+            party = searchParty(reaction.message, ROBIN_GUILD.parties, lambda x:x.message)
             for delMessage, member in party.joins.items():
                 if user == member:
                     del party.joins[delMessage]
-                    await delMessage.edit(f'@here {user.display_name} が加入申請を取下げ', view=None)
+                    await delMessage.delete()
                     break
 
 ##############################################################################################
@@ -752,6 +752,9 @@ class ApproveView(discord.ui.View):
                     await p.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember)
                 await thread.add_user(joinMember) # パーティへ追加
                 await party.addMember(Participant(joinMember, set(role for role in user.roles if role in ROBIN_GUILD.ROLES.keys())))
+                ################################################################
+                ## joins のメッセージをすべて Disable にしたい
+                ################################################################
                 del party.joins[message] # 申請削除
                 await thread.starting_message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember) # リアクション処理
                 buttonAllDisable(self.children)
