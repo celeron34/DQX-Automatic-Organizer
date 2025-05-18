@@ -156,7 +156,7 @@ class LightParty(Party):
         return False
     
     def isEmpty(self) -> bool:
-        return any(map(lambda x:isinstance(x, Participant), self.members))
+        return all(map(lambda member: not isinstance(member, Participant), self.members))
         
     # async def unionParty(self):
     #     '''パーティ同盟'''
