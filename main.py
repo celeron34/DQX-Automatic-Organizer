@@ -424,7 +424,7 @@ async def loop():
     if now == ROBIN_GUILD.timeTable[0] - delta(minutes=30):
         # パーティ編成クラスをインスタンス化，メッセージ送信
         print(f'################### {dt.now()} Recluting ###################')
-        ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.send(ROBIN_GUILD.timeTable[0].strftime('@here¥n# 【異星周回 %H時】\n参加希望は<:sanka:1345708506111545375>リアクション願います')) # 募集文
+        ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.send(ROBIN_GUILD.timeTable[0].strftime('# 【異星周回 %H時】\n参加希望は<:sanka:1345708506111545375>リアクション願います')) # 募集文
         await ROBIN_GUILD.reclutingMessage.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI) # 参加リアクション追加
         # await ROBIN_GUILD.reclutingMessage.add_reaction(ROBIN_GUILD.LIGHTPARTY_EMOJI) # ライトパーティリアクション追加
         # await ROBIN_GUILD.reclutingMessage.add_reaction(ROBIN_GUILD.FULLPARTY_EMOJI) # フルパーティリアクション追加
@@ -471,7 +471,7 @@ async def loop():
             print(f'formation argolithm time: {dt.now() - formationStartTime}')
 
             # パーティ通知メッセージ
-            await ROBIN_GUILD.PARTY_CH.send(ROBIN_GUILD.timeTable[0].strftime('@here¥n## %H時のパーティ編成が完了しました\n参加者は ___**サーバー3**___ へ' + '' if participantNum != 8 else '参加者が8人ですので\n## 殲滅固定（カンダタを倒す）同盟です\n参加者は ___**サーバー3**___ へ'), \
+            await ROBIN_GUILD.PARTY_CH.send(ROBIN_GUILD.timeTable[0].strftime('## %H時のパーティ編成が完了しました\n参加者は ___**サーバー3**___ へ' + '' if participantNum != 8 else '参加者が8人ですので\n## 殲滅固定（カンダタを倒す）同盟です\n参加者は ___**サーバー3**___ へ'), \
                                             view=FormationTopView(timeout=3600))
             
             for party in ROBIN_GUILD.parties:
