@@ -856,7 +856,7 @@ async def createNewParty(user:discord.Member):
     if len(ROBIN_GUILD.parties) == 0: newPartyNum = 1
     else: newPartyNum = max(map(lambda x:x.number, ROBIN_GUILD.parties)) + 1
     roles = {role for role in user.roles if role in ROBIN_GUILD.ROLES.keys()}
-    newParty = LightParty(newPartyNum, {Participant(user, roles)})
+    newParty = LightParty(newPartyNum, [Participant(user, roles)])
     newParty.message = await ROBIN_GUILD.PARTY_CH.send(newParty.getPartyMessage(ROBIN_GUILD.ROLES))
     newParty.thread = await newParty.message.create_thread(name=f'Party:{newParty.number}', auto_archive_duration=60)
     timeout = (ROBIN_GUILD.timeTable[0] - dt.now() + delta(minutes=60))
