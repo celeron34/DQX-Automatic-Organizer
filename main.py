@@ -152,7 +152,7 @@ class LightParty(Party):
                 await self.thread.send(f'{member.display_name} が離脱\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
                 await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
                 return True
-        self.thread.send('ゲストがいないためパーティに変更はありません')
+        await self.thread.send('ゲストがいないためパーティに変更はありません')
         return False
     
     def isEmpty(self) -> bool:
