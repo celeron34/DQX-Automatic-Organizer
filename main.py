@@ -465,6 +465,7 @@ async def loop():
             formationStartTime = dt.now()
             # 編成
             shuffle(participants)
+            print(f'shaffled: {[participant.display_name for participant in participants]}')
             # parties:list[list[Participant]] = formation(participants)
             if participantNum >= 10:
                 for party in hispeedFormation(participants):
