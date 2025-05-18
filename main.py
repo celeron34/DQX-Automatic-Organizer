@@ -534,7 +534,7 @@ async def loop():
         ROBIN_GUILD.reclutingMessage = None
         msg = ROBIN_GUILD.timeTable[0].strftime('## 次回の異星は %H時 です\n%H時 > ')
         msg += ROBIN_GUILD.timeTable[1].strftime('%H時 > ')
-        try: msg += ROBIN_GUILD.timeTable[2].strftime('%H時 > [...](https://hiroba.dqx.jp/sc/tokoyami/#:~:text=%E3%81%8C%E3%81%A7%E3%81%8D%E3%81%BE%E3%81%99%E3%80%82-,%E8%A5%B2%E6%92%83%E3%82%B9%E3%82%B1%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB,-%E6%97%A5%E4%BB%98)')
+        try: msg += ROBIN_GUILD.timeTable[2].strftime('%H時 > [...](https://hiroba.dqx.jp/sc/tokoyami/)')
         except Exception as e:
             msg += ROBIN_GUILD.timeTable[2].strftime('%H時 > ...')
             printTraceback(e)
