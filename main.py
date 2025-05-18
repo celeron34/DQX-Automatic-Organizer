@@ -104,7 +104,7 @@ class LightParty(Party):
     async def joinRequest(self, member:discord.Member) -> bool:
         if self.isEmpty(): # パーティが空だった
             participant = Participant(member, set(role for role in member.roles if role in ROBIN_GUILD.ROLES.keys()))
-            await self.addMember(participant)
+            await self.joinMember(participant)
             return True
         if member in map(lambda x:x.user, self.members): # 自パーティだった
             await self.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, member)
@@ -114,7 +114,10 @@ class LightParty(Party):
         requestMessage = await self.thread.send(f'@here {member.display_name} から加入申請', view=ApproveView(timeout=600))
         self.joins[requestMessage] = member
 
-    async def addMember(self, participant:Participant|Guest) -> bool:
+    def addMember(self, participant:Participant|Guest) -> bool:
+        self.members.append(participant)
+    
+    async def joinMember(self, participant:Participant|Guest):
         if participant.user in map(lambda x:x.user, self.members): return False
         self.members.append(participant)
         if self.thread is None: return True
@@ -348,7 +351,7 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
                         party.joins[await thread.send(f'@here {user.display_name} から加入申請', view=ApproveView(timeout=600))] = user
                     else:
                         await reaction.message.remove_reaction(reaction.emoji, user)
-                        await party.addMember(Participant(user, set(role for role in user.roles if role in ROBIN_GUILD.ROLES.keys())))
+                        await party.joinMember(Participant(user, set(role for role in user.roles if role in ROBIN_GUILD.ROLES.keys())))
                         # await joinParticipant(Participant(user, set(role for role in user.roles if role in ROBIN_GUILD.ROLES.keys())), party)
                 else:
                     await reaction.message.remove_reaction(reaction.emoji, user)
@@ -751,7 +754,7 @@ class ApproveView(discord.ui.View):
                 for p in {p for p in ROBIN_GUILD.parties if joinMember in p.joins.values()}: # 参加リアクション全削除
                     await p.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember)
                 await thread.add_user(joinMember) # パーティへ追加
-                await party.addMember(Participant(joinMember, set(role for role in user.roles if role in ROBIN_GUILD.ROLES.keys())))
+                await party.joinMember(Participant(joinMember, set(role for role in user.roles if role in ROBIN_GUILD.ROLES.keys())))
                 del party.joins[message] # 申請削除
                 await thread.starting_message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember) # リアクション処理
                 buttonAllDisable(self.children)
@@ -816,7 +819,7 @@ class PartyView(discord.ui.View):
             await msg.delete(delay=5)
         elif interaction.user in map(lambda x:x.user, party.members):
             print(f'パーティメンバによるアクション')
-            await party.addMember(Guest())
+            await party.joinMember(Guest())
     
     @discord.ui.button(label='ゲスト削除')
     async def removeGuest(self, button:discord.ui.Button, interaction:discord.Interaction):
