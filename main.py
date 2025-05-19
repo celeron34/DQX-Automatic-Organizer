@@ -522,23 +522,24 @@ async def loop():
     # 1時間後 周回終わり
     elif now == ROBIN_GUILD.timeTable[0] + delta(minutes=60):
         global rebootScadule
-        if rebootScadule:
-            await f_reboot()
+        
         del ROBIN_GUILD.timeTable[0] # 先頭を削除
         if len(ROBIN_GUILD.timeTable) < 3:
             ROBIN_GUILD.timeTable = await getTimetable()
             for t in ROBIN_GUILD.timeTable:
                 print(t)
+        msg = ROBIN_GUILD.timeTable[0].strftime('## 次回の異星は %H時 です\n%H時 > ')
+        msg += ROBIN_GUILD.timeTable[1].strftime('%H時 > ')
+        msg += ROBIN_GUILD.timeTable[2].strftime('%H時 > [...](https://hiroba.dqx.jp/sc/tokoyami/)')
+        await ROBIN_GUILD.PARTY_CH.send(msg)
+
+        if rebootScadule:
+            await f_reboot()
+        
         await client.change_presence(activity=discord.CustomActivity(name=ROBIN_GUILD.timeTable[0].strftime("Next:%H時")))
         ROBIN_GUILD.parties = None
         ROBIN_GUILD.reclutingMessage = None
-        msg = ROBIN_GUILD.timeTable[0].strftime('## 次回の異星は %H時 です\n%H時 > ')
-        msg += ROBIN_GUILD.timeTable[1].strftime('%H時 > ')
-        try: msg += ROBIN_GUILD.timeTable[2].strftime('%H時 > [...](https://hiroba.dqx.jp/sc/tokoyami/)')
-        except Exception as e:
-            msg += ROBIN_GUILD.timeTable[2].strftime('%H時 > ...')
-            printTraceback(e)
-        await ROBIN_GUILD.PARTY_CH.send(msg)
+        
 
     ######################################################
     #
