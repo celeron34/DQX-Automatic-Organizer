@@ -387,14 +387,14 @@ async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|disc
     #         return
     
     # 参加申請取り消し
-    if ROBIN_GUILD.parties != None:
-        if reaction.message in map(lambda x:x.message, ROBIN_GUILD.parties) and reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
-            party:LightParty = searchParty(reaction.message, ROBIN_GUILD.parties)
-            for delMessage, member in party.joins.items():
-                if user == member:
-                    del party.joins[delMessage]
-                    await delMessage.edit(f'@here {user.display_name} が加入申請を取り下げ', view=None)
-                    break
+    # if ROBIN_GUILD.parties != None:
+    #     if reaction.message in map(lambda x:x.message, ROBIN_GUILD.parties) and reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
+    #         party:LightParty = searchParty(reaction.message, ROBIN_GUILD.parties)
+    #         for delMessage, member in party.joins.items():
+    #             if user == member:
+    #                 del party.joins[delMessage]
+    #                 await delMessage.edit(f'@here {user.display_name} が加入申請を取り下げ', view=None)
+    #                 break
 
 ##############################################################################################
 ## 
