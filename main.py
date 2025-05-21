@@ -756,7 +756,7 @@ class ApproveView(discord.ui.View):
                 for p in {p for p in ROBIN_GUILD.parties if joinMember in p.joins.values()}: # 参加リアクション全削除
                     await p.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember)
                 await thread.add_user(joinMember) # パーティへ追加
-                await party.joinMember(Participant(joinMember, set(role for role in user.roles if role in ROBIN_GUILD.ROLES.keys())))
+                await party.joinMember(Participant(joinMember, set(role for role in joinMember.roles if role in ROBIN_GUILD.ROLES.keys())))
                 del party.joins[message] # 申請削除
                 await thread.starting_message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember) # リアクション処理
                 buttonAllDisable(self.children)
