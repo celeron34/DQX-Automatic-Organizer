@@ -85,7 +85,7 @@ class Party: # パーティ情報 メッセージとパーティメンバ
         self.thread:discord.Thread|None = None
 
 class LightParty(Party):
-    def __init__(self, number, players:list[Participant]=set()):
+    def __init__(self, number, players:list[Participant]=list()):
         super().__init__(number)
         self.members:list[Participant|Guest] = players
         self.threadTopMessage:discord.Message|None = None
