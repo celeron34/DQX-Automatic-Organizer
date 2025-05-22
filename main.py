@@ -342,7 +342,7 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
             try:
                 # party = searchParty(message, ROBIN_GUILD.parties, lambda x:[x.message])
                 party:LightParty = searchParty(reaction.message, ROBIN_GUILD.parties)
-                party.joinRequest(user)
+                await party.joinRequest(user)
                 # if user.id not in map(lambda x:x.id, party.members): # 別のパーティ
                 #     if len(party.members) > 0: # 誰か１人でもいる場合 承認要請
                 #         await party.joinRequest(user)
