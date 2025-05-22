@@ -612,7 +612,7 @@ def hispeedFormation(participants:list[Participant]) -> list[SpeedParty]:
     if any(map(lambda x:None in x, parties[-1].members.values())) or len(participants) == 1:
         for role, partyMembers in parties[-1].members.items():
             for partyMember in partyMembers:
-                if type(partyMember) == Participant:
+                if isinstance(partyMember, Participant):
                     participants.insert(0, partyMember)
                     # participants = [partyMember] + participants
         del parties[-1]
