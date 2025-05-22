@@ -749,6 +749,8 @@ class ApproveView(discord.ui.View):
             print(f'{dt.now()} Approve from {user} {type(user)}')
             party = searchParty(message.channel, ROBIN_GUILD.parties)
             if user.id in {participant.id for participant in party.members}: # パーティメンバである
+                buttonAllDisable(self.children)
+                await interaction.response.edit_message(view=self)
                 print('パーティメンバによる承認')
                 thread = message.channel
                 joinMember = party.joins[message]
@@ -759,9 +761,6 @@ class ApproveView(discord.ui.View):
                 await party.joinMember(Participant(joinMember, set(role for role in joinMember.roles if role in ROBIN_GUILD.ROLES.keys())))
                 del party.joins[message] # 申請削除
                 await thread.starting_message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember) # リアクション処理
-                buttonAllDisable(self.children)
-                if type(self.timeout) == float: self.timeout += self.startTime - perf_counter()
-                await interaction.response.edit_message(view=self)
             else:
                 print('パーティメンバ以外による承認')
                 await interaction.response.defer()
