@@ -118,13 +118,13 @@ class LightParty(Party):
         self.members.append(participant)
     
     async def joinMember(self, participant:Participant|Guest):
-        if participant.user in map(lambda x:x.user, self.members): return False
-        self.members.append(participant)
+        if isinstance(participant, Guest) or participant.user in map(lambda x:x.user, self.members): return False
+        self.addMember(participant)
         if self.thread is None: return True
         print(f'PartyNum: {self.number} JoinMember: {participant.display_name}')
         await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
         await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
-        if isinstance(participant, Participant): # ゲストではなく，メンバならスレッドに入れる
+        if isinstance(participant, Participant): # メンバならスレッドに入れる
             await self.thread.add_user(participant.user)
         return True
     
