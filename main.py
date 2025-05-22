@@ -481,9 +481,9 @@ async def loop():
                                             view=FormationTopView(timeout=3600))
             
             for party in ROBIN_GUILD.parties:
-                if type(party) == SpeedParty:
+                if isinstance(party, SpeedParty):
                     party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
-                elif type(party) == LightParty:
+                elif isinstance(party, LightParty):
                     party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
 
         print(f'{dt.now()} Formation END')
@@ -497,9 +497,9 @@ async def loop():
                 await ROBIN_GUILD.PARTY_CH.send(speedPartyMessage)
         for party in ROBIN_GUILD.parties:
             try:
-                if type(party) == SpeedParty:
+                if isinstance(party, SpeedParty):
                     party.thread = await party.message.create_thread(name=f'SpeedParty:{party.number}', auto_archive_duration=60)
-                elif type(party) == LightParty:
+                elif isinstance(party, LightParty):
                     party.thread = await party.message.create_thread(name=f'Party:{party.number}', auto_archive_duration=60)
                     await party.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
                     party.threadTopMessage = await party.thread.send(view=PartyView(timeout=3600))
