@@ -340,23 +340,24 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
             ####################################################################
             try:
                 # party = searchParty(message, ROBIN_GUILD.parties, lambda x:[x.message])
-                party = searchParty(reaction.message, ROBIN_GUILD.parties)
-                if user.id not in map(lambda x:x.id, party.members): # 別のパーティ
-                    if len(party.members) > 0: # 誰か１人でもいる場合 承認要請
-                        await party.joinRequest(user)
-                        thread = reaction.message.thread
-                        if thread == None:
-                            message = await ROBIN_GUILD.PARTY_CH.fetch_message(reaction.message.id)
-                            thread = message.thread
-                        party.joins[await thread.send(f'@here {user.display_name} から加入申請', view=ApproveView(timeout=600))] = user
-                    else:
-                        await reaction.message.remove_reaction(reaction.emoji, user)
-                        await party.joinMember(Participant(user, set(role for role in user.roles if role in ROBIN_GUILD.ROLES.keys())))
-                        # await joinParticipant(Participant(user, set(role for role in user.roles if role in ROBIN_GUILD.ROLES.keys())), party)
-                else:
-                    await reaction.message.remove_reaction(reaction.emoji, user)
-                    errorMessage = await reaction.message.channel.send(f'{user.mention}加入中のパーティには参加申請できません')
-                    await errorMessage.delete(delay=5)
+                party:LightParty = searchParty(reaction.message, ROBIN_GUILD.parties)
+                party.joinRequest(user)
+                # if user.id not in map(lambda x:x.id, party.members): # 別のパーティ
+                #     if len(party.members) > 0: # 誰か１人でもいる場合 承認要請
+                #         await party.joinRequest(user)
+                #         thread = reaction.message.thread
+                #         if thread == None:
+                #             message = await ROBIN_GUILD.PARTY_CH.fetch_message(reaction.message.id)
+                #             thread = message.thread
+                #         party.joins[await thread.send(f'@here {user.display_name} から加入申請', view=ApproveView(timeout=600))] = user
+                #     else:
+                #         await reaction.message.remove_reaction(reaction.emoji, user)
+                #         await party.joinMember(Participant(user, set(role for role in user.roles if role in ROBIN_GUILD.ROLES.keys())))
+                #         # await joinParticipant(Participant(user, set(role for role in user.roles if role in ROBIN_GUILD.ROLES.keys())), party)
+                # else:
+                #     await reaction.message.remove_reaction(reaction.emoji, user)
+                #     errorMessage = await reaction.message.channel.send(f'{user.mention}加入中のパーティには参加申請できません')
+                #     await errorMessage.delete(delay=5)
             except Exception as e:
                 printTraceback(e)
 
