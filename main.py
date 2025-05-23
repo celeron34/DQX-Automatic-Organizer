@@ -92,16 +92,30 @@ class LightParty(Party):
         self.threadTopMessage:discord.Message|None = None
         self.aliance:LightParty|None = None
     
-    def _addAlience(self, party:LightParty):
+    async def _addAlience(self, party:LightParty):
         self.aliance = party
         msg = f'@here\n## [パーティ{self.aliance.number}]({self.aliance.message.jump_url}) と同盟'
         for member in self.aliance.members:
             msg += f'\n{member.display_name}'
-        self.thread.send(msg)
+        await self.thread.send(msg)
 
-    def addAlianceParty(self, party:LightParty):
-        self._addAlience(party)
-        party._addAlience(self)
+    async def addAlianceParty(self, party:LightParty):
+        await self._addAlience(party)
+        await party._addAlience(self)
+
+    async def _removeAliance(self, party:LightParty):
+        self.aliance = None
+        await self.thread.send(f'@here パーティ{party.number} の同盟を解除')
+        if self.membersNum() == 4:
+            for party in ROBIN_GUILD.parties:
+                if isinstance(party, LightParty) and party.membersNum() == 4 and party.aliance is None:
+                    await self.addAlianceParty(party)
+                    break
+        await self.message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
+
+    def leaveAliancePart(self):
+        self.aliance._removeAliance(self)
+        self._removeAliance(self.aliance)
 
     def membersNum(self) -> int:
         return len(self.members)
@@ -499,6 +513,17 @@ async def loop():
                 ROBIN_GUILD.parties.append(party)
             print(f'formation argolithm time: {dt.now() - formationStartTime}')
 
+            try:
+                # パーティ同盟チェック
+                for party in ROBIN_GUILD.parties:
+                    if isinstance(party, LightParty) and party.aliance is None and party.membersNum() == 4:
+                        for aliance in ROBIN_GUILD.parties:
+                            if isinstance(party, LightParty) and aliance.aliance is None and aliance != party and aliance.membersNum() == 4:
+                                party.addAlianceParty(aliance)
+                                break
+            except Exception as e:
+                printTraceback(e)
+
             # パーティ通知メッセージ
             await ROBIN_GUILD.PARTY_CH.send(ROBIN_GUILD.timeTable[0].strftime('## %H時のパーティ編成が完了しました\n参加者は ___**サーバー3**___ へ' + '' if participantNum != 8 else '参加者が8人ですので\n## 殲滅固定（カンダタを倒す）同盟です\n参加者は ___**サーバー3**___ へ'), \
                                             view=FormationTopView(timeout=3600))
@@ -507,7 +532,15 @@ async def loop():
                 if isinstance(party, SpeedParty):
                     party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
                 elif isinstance(party, LightParty):
-                    party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
+                    try:
+                        if party.aliance is None:
+                            msg = party.getPartyMessage(ROBIN_GUILD.ROLES)
+                        else:
+                            msg = party.getPartyMessage(ROBIN_GUILD.ROLES)
+                        party.message = await ROBIN_GUILD.PARTY_CH.send(msg)
+                    except Exception as e:
+                        party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
+                        printTraceback(e)
 
         print(f'{dt.now()} Formation END')
 
@@ -519,17 +552,14 @@ async def loop():
                 printTraceback(e)
                 await ROBIN_GUILD.PARTY_CH.send(speedPartyMessage)
         for party in ROBIN_GUILD.parties:
-            try:
+                
                 if isinstance(party, SpeedParty):
                     party.thread = await party.message.create_thread(name=f'SpeedParty:{party.number}', auto_archive_duration=60)
                 elif isinstance(party, LightParty):
                     party.thread = await party.message.create_thread(name=f'Party:{party.number}', auto_archive_duration=60)
                     await party.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
                     party.threadTopMessage = await party.thread.send(view=PartyView(timeout=3600))
-                    
-            except Exception as e:
-                printTraceback(e)
-        
+                
         print(f'{dt.now()} Create Threads END')
         print(f'{dt.now()} Add Log')
         with open(f'reactionLog/{ROBIN_GUILD.GUILD.name}.csv', 'a', encoding='utf8') as f:
