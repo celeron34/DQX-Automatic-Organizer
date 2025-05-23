@@ -1,3 +1,4 @@
+from __future__ import annotations
 import discord
 from discord.ext import tasks, commands
 from dqx_ise import getTable
@@ -14,7 +15,6 @@ from subprocess import Popen
 from traceback import extract_tb, format_list
 from re import sub, match
 from os import getcwd
-from __future__ import annotations
 
 # インテント
 intents = discord.Intents.all()
