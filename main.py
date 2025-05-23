@@ -14,6 +14,7 @@ from subprocess import Popen
 from traceback import extract_tb, format_list
 from re import sub, match
 from os import getcwd
+from __future__ import annotations
 
 # インテント
 intents = discord.Intents.all()
@@ -89,12 +90,27 @@ class LightParty(Party):
         super().__init__(number)
         self.members:list[Participant|Guest] = players
         self.threadTopMessage:discord.Message|None = None
+        self.aliance:LightParty|None = None
+    
+    def _addAlience(self, party:LightParty):
+        self.aliance = party
+        msg = f'@here\n## [パーティ{self.aliance.number}]({self.aliance.message.jump_url}) と同盟'
+        for member in self.aliance.members:
+            msg += f'\n{member.display_name}'
+        self.thread.send(msg)
+
+    def addAlianceParty(self, party:LightParty):
+        self._addAlience(party)
+        party._addAlience(self)
 
     def membersNum(self) -> int:
         return len(self.members)
 
     def getPartyMessage(self, guildRolesEmoji:dict[discord.Role,RoleInfo]) -> str:
         msg = f'\| 【パーティ:{self.number}】'
+        try: 
+            if self.aliance: msg += f'同盟 -> [パーティ{self.aliance.number}]({self.aliance.message.jump_url})'
+        except Exception as e: printTraceback(e)
         for player in self.members:
             msg += f'\n\| {player.mention}'
             for role in player.roles:
@@ -126,6 +142,13 @@ class LightParty(Party):
         await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
         if isinstance(participant, Participant): # メンバならスレッドに入れる
             await self.thread.add_user(participant.user)
+        if self.membersNum() == 4 and self.aliance is not None:
+            # ４人到達 アライアンス探索
+            for party in ROBIN_GUILD.parties:
+                if party == self: continue
+                if party.membersNum() == 4 and self.aliance is not None:
+                    self.addAlianceParty(party)
+                    break
         return True
     
     async def removeMember(self, member:Participant|discord.Member|Guest) -> bool:
