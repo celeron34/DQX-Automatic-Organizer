@@ -118,7 +118,7 @@ class LightParty(Party):
         self.members.append(participant)
     
     async def joinMember(self, participant:Participant|Guest):
-        if isinstance(participant, Guest) or participant.user in map(lambda x:x.user, self.members): return False
+        if not isinstance(participant, Guest) or participant.user in map(lambda x:x.user, self.members): return False
         self.addMember(participant)
         if self.thread is None: return True
         print(f'PartyNum: {self.number} JoinMember: {participant.display_name}')
