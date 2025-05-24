@@ -373,12 +373,12 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
         elif reaction.message in map(lambda x:x.message, ROBIN_GUILD.parties) and reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
             print('Join request')
             ####################################################################
-            # party = searchParty(reaction.message, ROBIN_GUILD.parties)
+            # party = searchLightParty(reaction.message, ROBIN_GUILD.parties)
             # party.joinRequest(user)
             ####################################################################
             try:
-                # party = searchParty(message, ROBIN_GUILD.parties, lambda x:[x.message])
-                party:LightParty = searchParty(reaction.message, ROBIN_GUILD.parties)
+                # party = searchLightParty(message, ROBIN_GUILD.parties, lambda x:[x.message])
+                party:LightParty = searchLightParty(reaction.message, ROBIN_GUILD.parties)
                 await party.joinRequest(user)
                 # if user.id not in map(lambda x:x.id, party.members): # 別のパーティ
                 #     if len(party.members) > 0: # 誰か１人でもいる場合 承認要請
@@ -401,12 +401,12 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
 
 ##############################################################################################
 ## 
-def searchParty(message:discord.Message, parties:list[Party]) -> Party|None:
+def searchLightParty(message:discord.Message, parties:list[Party]) -> Party|None:
     for party in parties:
-        print(f'target message:{message.id} party.message{party.message.id} party.threadTopMessage{party.threadTopMessage.id}')
-        # print(f'searchParty {message.id} {party.message.id}')
-        if message.id == party.message.id or message.id == party.threadTopMessage.id:
-            return party
+        if isinstance(party, LightParty):
+            print(f'target message:{message.id} party.message{party.message.id} party.threadTopMessage{party.threadTopMessage.id}')
+            if message.id == party.message.id or message.id == party.threadTopMessage.id:
+                return party
     return None
 
 ##############################################################################################
@@ -428,7 +428,7 @@ async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|disc
     # 参加申請取り消し
     # if ROBIN_GUILD.parties != None:
     #     if reaction.message in map(lambda x:x.message, ROBIN_GUILD.parties) and reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
-    #         party:LightParty = searchParty(reaction.message, ROBIN_GUILD.parties)
+    #         party:LightParty = searchLightParty(reaction.message, ROBIN_GUILD.parties)
     #         for delMessage, member in party.joins.items():
     #             if user == member:
     #                 del party.joins[delMessage]
@@ -802,7 +802,7 @@ class ApproveView(discord.ui.View):
             message = interaction.message
             user = interaction.user
             print(f'{dt.now()} Approve from {user} {type(user)}')
-            party = searchParty(message.channel, ROBIN_GUILD.parties)
+            party = searchLightParty(message.channel, ROBIN_GUILD.parties)
             if user.id in {participant.id for participant in party.members}: # パーティメンバである
                 buttonAllDisable(self.children)
                 await interaction.response.edit_message(view=self)
@@ -835,7 +835,7 @@ class PartyView(discord.ui.View):
     @discord.ui.button(label='パーティを抜ける')
     async def leaveParty(self, button:discord.ui.Button, interaction:discord.Interaction):
         print(f'{dt.now()} Leave party button is pressed from {interaction.user.display_name}')
-        party:LightParty = searchParty(interaction.message, ROBIN_GUILD.parties)
+        party:LightParty = searchLightParty(interaction.message, ROBIN_GUILD.parties)
         await interaction.response.defer()
         if party == None:
             print(f'非パーティメンバによるアクション')
@@ -868,7 +868,7 @@ class PartyView(discord.ui.View):
     async def addGuest(self, button:discord.ui.Button, interaction:discord.Interaction):
         print(f'{dt.now()} Guest add button is pressed from {interaction.user.display_name}')
         await interaction.response.defer()
-        party = searchParty(interaction.channel.starting_message, ROBIN_GUILD.parties)
+        party = searchLightParty(interaction.channel.starting_message, ROBIN_GUILD.parties)
         if party == None:
             print(f'非パーティメンバによるアクション')
             msg = await interaction.channel.send(f'{interaction.user.mention}パーティメンバ以外は操作できません')
@@ -881,7 +881,7 @@ class PartyView(discord.ui.View):
     async def removeGuest(self, button:discord.ui.Button, interaction:discord.Interaction):
         print(f'{dt.now()} Guest remove button from {interaction.user.display_name}')
         await interaction.response.defer()
-        party = searchParty(interaction.channel.starting_message, ROBIN_GUILD.parties)
+        party = searchLightParty(interaction.channel.starting_message, ROBIN_GUILD.parties)
         if party == None:
             print(f'非パーティメンバによるアクション')
             msg = await interaction.channel.send(f'{interaction.user.mention}パーティメンバ以外は操作できません')
