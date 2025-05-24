@@ -518,7 +518,7 @@ async def loop():
                 for party in ROBIN_GUILD.parties:
                     if isinstance(party, LightParty) and party.aliance is None and party.membersNum() == 4:
                         for aliance in ROBIN_GUILD.parties:
-                            if isinstance(party, LightParty) and aliance.aliance is None and aliance != party and aliance.membersNum() == 4:
+                            if isinstance(aliance, LightParty) and aliance.aliance is None and aliance != party and aliance.membersNum() == 4:
                                 party.addAlianceParty(aliance)
                                 break
             except Exception as e:
