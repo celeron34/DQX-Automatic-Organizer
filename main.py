@@ -403,8 +403,7 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
 ## 
 def searchParty(message:discord.Message, parties:list[Party]) -> Party|None:
     for party in parties:
-        print(f'target message:{message.id} party.message{party.message.id} party.threadTopMessage{party.threadTopMessage.id}')
-        # print(f'searchParty {message.id} {party.message.id}')
+        # print(f'target message:{message.id} party.message{party.message.id} party.threadTopMessage{party.threadTopMessage.id}')
         if message.id == party.message.id or message.id == party.threadTopMessage.id:
             return party
     return None
