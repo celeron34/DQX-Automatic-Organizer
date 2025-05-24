@@ -132,17 +132,21 @@ class LightParty(Party):
         return msg
     
     async def joinRequest(self, member:discord.Member) -> bool:
+        print(f'Join request Party:{self.number} {member}')
         if self.isEmpty(): # パーティが空だった
+            print('パーティが空')
             participant = Participant(member, set(role for role in member.roles if role in ROBIN_GUILD.ROLES.keys()))
             await self.joinMember(participant)
             return True
         if member in map(lambda x:x.user, self.members): # 自パーティだった
+            print('自パーティだった')
             await self.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, member)
             msg = await ROBIN_GUILD.PARTY_CH.send(f'{member.mention}加入中のパーティには参加申請できません')
             await msg.delete(delay=5)
             return False
-        requestMessage = await self.thread.send(f'@here {member.display_name} から加入申請', view=ApproveView(timeout=600))
+        print(f'Join request Done')
         self.joins[requestMessage] = member
+        requestMessage = await self.thread.send(f'@here {member.display_name} から加入申請', view=ApproveView(timeout=600))
 
     def addMember(self, participant:Participant|Guest) -> bool:
         self.members.append(participant)
@@ -371,7 +375,6 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
 
         # パーティメッセージ
         elif reaction.message in map(lambda x:x.message, ROBIN_GUILD.parties) and reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
-            print('Join request')
             ####################################################################
             # party = searchLightParty(reaction.message, ROBIN_GUILD.parties)
             # party.joinRequest(user)
