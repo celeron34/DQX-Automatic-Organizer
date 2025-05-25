@@ -145,8 +145,8 @@ class LightParty(Party):
             await msg.delete(delay=5)
             return False
         print(f'Join request Done')
-        self.joins[requestMessage] = member
         requestMessage = await self.thread.send(f'@here {member.display_name} から加入申請', view=ApproveView(timeout=600))
+        self.joins[requestMessage] = member
 
     def addMember(self, participant:Participant|Guest) -> bool:
         self.members.append(participant)
