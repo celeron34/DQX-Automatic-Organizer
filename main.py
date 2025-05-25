@@ -29,7 +29,7 @@ client = commands.Bot(
     intents=intents
     )
 
-rebootScadule:bool = False
+rebootScadule:bool|discord.TextChannel = False
 
 speedPartyMessage = '''ーーーーーーーーーー
 【パーティー１】
@@ -594,6 +594,9 @@ async def loop():
         await ROBIN_GUILD.PARTY_CH.send(msg)
 
         if rebootScadule:
+            try: await rebootScadule.send('再起動します')
+            except Exception as e:
+                printTraceback(e)
             await f_reboot()
         
         await client.change_presence(activity=discord.CustomActivity(name=ROBIN_GUILD.timeTable[0].strftime("Next:%H時")))
@@ -930,7 +933,11 @@ class RebootView(discord.ui.View):
     @discord.ui.button(label='次の周回終了で再起動', style=discord.ButtonStyle.green)
     async def scaduleReboot(self, button:discord.ui.Button, interaction:discord.Interaction):
         global rebootScadule
-        rebootScadule = True
+        try:
+            rebootScadule = interaction.channel
+        except Exception as e:
+            printTraceback(e)
+            rebootScadule = True
         buttonAllDisable(self.children)
         print(f'{dt.now()} 再起動スケジュールが設定されました')
         await interaction.response.edit_message(view=self)
