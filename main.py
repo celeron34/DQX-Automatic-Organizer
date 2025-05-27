@@ -146,7 +146,7 @@ class LightParty(Party):
             for party in ROBIN_GUILD.parties:
                 if party == self: continue
                 print(f'パーティ{party.number}:{party.membersNum()}')
-                if party.membersNum() == 4 and self.aliance is not None:
+                if party.membersNum() == 4 and self.aliance is None:
                     print(f'Aliance:{self.number}-{party.number}')
                     await self.addAlianceParty(party)
                     break
