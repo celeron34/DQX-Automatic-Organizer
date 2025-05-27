@@ -140,17 +140,20 @@ class LightParty(Party):
             await self.thread.add_user(participant.user)
         await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
         await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
+        await self.alianceCheck(ROBIN_GUILD.parties)
+        return True
+    
+    async def alianceCheck(self, parties:list[LightParty]):
         if self.membersNum() == 4 and self.aliance is None:
             # ４人到達 アライアンス探索
             print('aliance check')
-            for party in ROBIN_GUILD.parties:
+            for party in parties:
                 if party == self: continue
-                print(f'パーティ{party.number}:{party.membersNum()}')
-                if party.membersNum() == 4 and self.aliance is None:
+                print(f'{party.number}: {party.members()}')
+                if party.membersNum() == 4 and self.aliance is not None:
                     print(f'Aliance:{self.number}-{party.number}')
                     await self.addAlianceParty(party)
                     break
-        return True
     
     async def removeMember(self, member:Participant|discord.Member|Guest) -> bool:
         if isinstance(member, Guest):
@@ -508,11 +511,13 @@ async def loop():
             try:
                 # パーティ同盟チェック
                 for party in ROBIN_GUILD.parties:
-                    if isinstance(party, LightParty) and party.aliance is None and party.membersNum() == 4:
-                        for aliance in ROBIN_GUILD.parties:
-                            if isinstance(aliance, LightParty) and aliance.aliance is None and aliance != party and aliance.membersNum() == 4:
-                                await party.addAlianceParty(aliance)
-                                break
+                    if isinstance(party, LightParty):
+                        await party.alianceCheck(ROBIN_GUILD.parties)
+                    # if isinstance(party, LightParty) and party.aliance is None and party.membersNum() == 4:
+                    #     for aliance in ROBIN_GUILD.parties:
+                    #         if isinstance(aliance, LightParty) and aliance.aliance is None and aliance != party and aliance.membersNum() == 4:
+                    #             await party.addAlianceParty(aliance)
+                    #             break
             except Exception as e:
                 printTraceback(e)
 
