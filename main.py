@@ -29,28 +29,7 @@ client = commands.Bot(
     intents=intents
     )
 
-rebootScadule:bool = False
-
-speedPartyMessage = '''ーーーーーーーーーー
-【パーティー１】
-<:boomerang:1345710507398529085> 先導レン
-<:card:1345708117618458695> 札バト(まも)
-<:relay:1345708094251859999> 中継まも <:leader:1365542039017754706> リダ(同盟誘う方)
-<:buttarfly:1345708049838641234> 霧レン
-1. 中継が「札」「霧レン」を誘う
-2. 先導から「中継PT3人」を誘う
-3. リダを渡す(中継へ)
-
-【パーティー２】
-<:magic_knight:1345708222962470952> 魔戦 <:leader:1365542039017754706> リダ(同盟受ける方)
-<:heal:1345708066741424138> 回１まも
-<:heal:1345708066741424138> 回２まも
-<:heal:1345708066741424138> 特攻(GFまも)
-誘い順は何でもOK
-
-★リダは変更オッケーです！
-持ち替えの無い人(札、先導以外)推奨
-ーーーーーーーーーー'''
+rebootScadule:bool|discord.TextChannel = False
 
 class RoleInfo:
     def __init__(self, emoji:discord.Emoji, count:int):
@@ -92,20 +71,13 @@ class LightParty(Party):
         self.threadTopMessage:discord.Message|None = None
         self.aliance:LightParty|None = None
     
-    async def _addAlience(self, party:LightParty):
-        self.aliance = party
-        msg = f'@here\n## [パーティ{self.aliance.number}]({self.aliance.message.jump_url}) と同盟'
-        for member in self.aliance.members:
-            msg += f'\n{member.display_name}'
-        await self.thread.send(msg)
-
     async def addAlianceParty(self, party:LightParty):
         await self._addAlience(party)
         await party._addAlience(self)
 
     async def _removeAliance(self, party:LightParty):
         self.aliance = None
-        await self.thread.send(f'@here パーティ{party.number} の同盟を解除')
+        await self.thread.send(f'@here\n## パーティ{party.number} の同盟を解除')
         if self.membersNum() == 4:
             for party in ROBIN_GUILD.parties:
                 if isinstance(party, LightParty) and party.membersNum() == 4 and party.aliance is None:
@@ -113,9 +85,17 @@ class LightParty(Party):
                     break
         await self.message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
 
-    def leaveAliancePart(self):
-        self.aliance._removeAliance(self)
-        self._removeAliance(self.aliance)
+    async def _addAlience(self, party:LightParty):
+        self.aliance = party
+        # 同盟先のパーティ情報
+        msg = f'@here\n## [パーティ{self.aliance.number}]({self.aliance.message.jump_url}) と同盟'
+        for member in self.aliance.members:
+            msg += f'\n{member.display_name}'
+        await self.thread.send(msg)
+
+    async def leaveAliancePart(self):
+        await self.aliance._removeAliance(self)
+        await self._removeAliance(self.aliance)
 
     def membersNum(self) -> int:
         return len(self.members)
@@ -155,25 +135,29 @@ class LightParty(Party):
         if not isinstance(participant, Guest) and participant.user in map(lambda x:x.user, self.members): return False
         self.addMember(participant)
         if self.thread is None: return True
-        print(f'PartyNumber: {self.number} JoinMember: {participant.display_name} PartyMemberNumber{self.membersNum()}')
-        await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
-        await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
+        print(f'PartyNumber:{self.number} JoinMember:{participant.display_name} PartyMemberNumber:{self.membersNum()} Aliance:{self.aliance}')
         if isinstance(participant, Participant): # メンバならスレッドに入れる
             await self.thread.add_user(participant.user)
-        if self.membersNum() == 4 and self.aliance is not None:
+        await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
+        await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
+        await self.alianceCheck(ROBIN_GUILD.parties)
+        return True
+    
+    async def alianceCheck(self, parties:list[LightParty]):
+        if self.membersNum() == 4 and self.aliance is None:
             # ４人到達 アライアンス探索
             print('aliance check')
-            for party in ROBIN_GUILD.parties:
+            for party in parties:
                 if party == self: continue
-                print(f'パーティ{party.number}:{party.membersNum()}')
+                print(f'{party.number}: {party.members()}')
                 if party.membersNum() == 4 and self.aliance is not None:
-                    self.addAlianceParty(party)
+                    print(f'Aliance:{self.number}-{party.number}')
+                    await self.addAlianceParty(party)
                     break
-        return True
     
     async def removeMember(self, member:Participant|discord.Member|Guest) -> bool:
         if isinstance(member, Guest):
-            return self.removeGuest()
+            self.removeGuest()
         elif isinstance(member, Participant) or isinstance(member, discord.Member):
             if isinstance(member, Participant): member = member.user # memberを必ずMemberクラスにする
             if member not in map(lambda x:x.user, self.members): return False
@@ -183,9 +167,15 @@ class LightParty(Party):
                     print(f'PartyNum: {self.number} RemoveMember: {member.display_name}')
                     await self.thread.send(f'{member.display_name} が離脱\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
                     await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
-                    return True
-            return False
-        raise TypeError()
+                    break
+            else:
+                return False
+        else:
+            raise TypeError(member)
+        
+        if self.aliance:
+            await self.leaveAliancePart()
+        return True
 
     async def removeGuest(self) -> bool:
         for member in self.members:
@@ -521,11 +511,13 @@ async def loop():
             try:
                 # パーティ同盟チェック
                 for party in ROBIN_GUILD.parties:
-                    if isinstance(party, LightParty) and party.aliance is None and party.membersNum() == 4:
-                        for aliance in ROBIN_GUILD.parties:
-                            if isinstance(aliance, LightParty) and aliance.aliance is None and aliance != party and aliance.membersNum() == 4:
-                                await party.addAlianceParty(aliance)
-                                break
+                    if isinstance(party, LightParty):
+                        await party.alianceCheck(ROBIN_GUILD.parties)
+                    # if isinstance(party, LightParty) and party.aliance is None and party.membersNum() == 4:
+                    #     for aliance in ROBIN_GUILD.parties:
+                    #         if isinstance(aliance, LightParty) and aliance.aliance is None and aliance != party and aliance.membersNum() == 4:
+                    #             await party.addAlianceParty(aliance)
+                    #             break
             except Exception as e:
                 printTraceback(e)
 
@@ -552,18 +544,14 @@ async def loop():
         print(f'{dt.now()} Create Threads')
 
         if any(map(lambda x:isinstance(x, SpeedParty), ROBIN_GUILD.parties)):
-            try: await ROBIN_GUILD.PARTY_CH.send(file=discord.File('images/speedParty.png'))
-            except Exception as e:
-                printTraceback(e)
-                await ROBIN_GUILD.PARTY_CH.send(speedPartyMessage)
+            await ROBIN_GUILD.PARTY_CH.send(file=discord.File('images/speedParty.png'))
         for party in ROBIN_GUILD.parties:
-                
-                if isinstance(party, SpeedParty):
-                    party.thread = await party.message.create_thread(name=f'SpeedParty:{party.number}', auto_archive_duration=60)
-                elif isinstance(party, LightParty):
-                    party.thread = await party.message.create_thread(name=f'Party:{party.number}', auto_archive_duration=60)
-                    await party.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
-                    party.threadTopMessage = await party.thread.send(view=PartyView(timeout=3600))
+            if isinstance(party, SpeedParty):
+                party.thread = await party.message.create_thread(name=f'SpeedParty:{party.number}', auto_archive_duration=60)
+            elif isinstance(party, LightParty):
+                party.thread = await party.message.create_thread(name=f'Party:{party.number}', auto_archive_duration=60)
+                await party.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
+                party.threadTopMessage = await party.thread.send(view=PartyView(timeout=3600))
                 
         print(f'{dt.now()} Create Threads END')
         print(f'{dt.now()} Add Log')
@@ -594,6 +582,9 @@ async def loop():
         await ROBIN_GUILD.PARTY_CH.send(msg)
 
         if rebootScadule:
+            try: await rebootScadule.send('再起動します')
+            except Exception as e:
+                printTraceback(e)
             await f_reboot()
         
         await client.change_presence(activity=discord.CustomActivity(name=ROBIN_GUILD.timeTable[0].strftime("Next:%H時")))
@@ -930,7 +921,11 @@ class RebootView(discord.ui.View):
     @discord.ui.button(label='次の周回終了で再起動', style=discord.ButtonStyle.green)
     async def scaduleReboot(self, button:discord.ui.Button, interaction:discord.Interaction):
         global rebootScadule
-        rebootScadule = True
+        try:
+            rebootScadule = interaction.channel
+        except Exception as e:
+            printTraceback(e)
+            rebootScadule = True
         buttonAllDisable(self.children)
         print(f'{dt.now()} 再起動スケジュールが設定されました')
         await interaction.response.edit_message(view=self)
