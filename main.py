@@ -160,13 +160,13 @@ class LightParty(Party):
         await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
         if isinstance(participant, Participant): # メンバならスレッドに入れる
             await self.thread.add_user(participant.user)
-        if self.membersNum() == 4 and self.aliance is not None:
+        if self.membersNum() == 4 and self.aliance is None:
             # ４人到達 アライアンス探索
             print('aliance check')
             for party in ROBIN_GUILD.parties:
                 if party == self: continue
                 print(f'パーティ{party.number}:{party.membersNum()}')
-                if party.membersNum() == 4 and self.aliance is not None:
+                if party.membersNum() == 4 and self.aliance is None:
                     self.addAlianceParty(party)
                     break
         return True
