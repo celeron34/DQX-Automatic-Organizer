@@ -513,11 +513,6 @@ async def loop():
                 for party in ROBIN_GUILD.parties:
                     if isinstance(party, LightParty):
                         await party.alianceCheck(ROBIN_GUILD.parties)
-                    # if isinstance(party, LightParty) and party.aliance is None and party.membersNum() == 4:
-                    #     for aliance in ROBIN_GUILD.parties:
-                    #         if isinstance(aliance, LightParty) and aliance.aliance is None and aliance != party and aliance.membersNum() == 4:
-                    #             await party.addAlianceParty(aliance)
-                    #             break
             except Exception as e:
                 printTraceback(e)
 
@@ -843,9 +838,6 @@ class PartyView(discord.ui.View):
             thread:discord.Thread = interaction.message.channel
             print(f'thread: {type(thread)} {thread.id}')
             await thread.remove_user(interaction.user)
-            # party.members.remove(interaction.user)
-            # partyMemberNum = party.removeMember(interaction.user)
-            # await leaveParty(interaction.user, party)
             await party.removeMember(interaction.user)
             try:
                 if party.isEmpty():
@@ -895,13 +887,11 @@ class FormationTopView(discord.ui.View):
     async def newPartyButton(self, button:discord.ui.Button, interaction:discord.Interaction):
         print(f'{dt.now()} New Party button from {interaction.user.display_name}')
         await interaction.response.defer()
-        # if type(self.timeout) == float: self.timeout += self.startTime - perf_counter()
         if all({interaction.user.id not in map(lambda party:map(lambda member:member.id, party.members), ROBIN_GUILD.parties)}):
             await createNewParty(interaction.user)
         else:
             alartMessage = await interaction.channel.send(f'{interaction.user.mention}パーティメンバは新規パーティを生成できません')
             await alartMessage.delete(delay=5)
-            if type(self.timeout) == float: self.timeout += self.startTime - perf_counter()
 
 async def createNewParty(user:discord.Member):
     if len(ROBIN_GUILD.parties) == 0: newPartyNum = 1
@@ -1052,18 +1042,6 @@ async def f_reboot(ctx:discord.ApplicationContext|None = None):
     Popen([executable, '-u'] + argv, cwd=getcwd())  # ボットを再起動
     await client.close()  # ボットを終了
     exit()
-
-# @client.slash_command(name='f-get-member-id', description='メンバIDとメンバ表示名を紐づけたファイルを返します')
-# async def f_get_memberID(ctx:discord.ApplicationContext):
-#     if ctx.guild == None:
-#         await ctx.respond('目的のサーバー内でコマンドしてください')
-#         return
-#     with open('memberID.csv', 'w', encoding='utf-8-sig') as f:
-#         for member in ctx.guild.members:
-#             f.write(f'{member.id},{member.display_name}\n')
-#     with open('memberID.csv', 'r', encoding='utf-8-sig') as f:
-#         retFile = discord.File(fp=f, filename='memberID.csv')
-#     await ctx.respond(f'{ctx.user.mention}', file=retFile)
 
 ##############################################################################################
 if __name__ == '__main__':
