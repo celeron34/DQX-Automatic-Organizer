@@ -935,7 +935,6 @@ class RebootView(discord.ui.View):
         button.disabled = True
         buttonAllDisable(self.children)
         await interaction.response.edit_message(view=self)
-        await interaction.respond('再起動します')
         await f_reboot(interaction)
 
 def buttonAllDisable(children):
