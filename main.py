@@ -204,7 +204,7 @@ class SpeedParty(Party):
         msg = f'\| <:FullParty:1345733070065500281> 高速パーティ:{self.number} <:FullParty:1345733070065500281>'
         for partyRole, members in self.members.items():
             for member in members:
-                msg += f'\n{guildRolesEmoji[partyRole].emoji} \| {member.mention} '
+                msg += f'\n{guildRolesEmoji[partyRole].emoji} \| {member.mention}'
                 for memberRole in member.roles:
                     msg += str(guildRolesEmoji[memberRole].emoji)
         return msg
@@ -935,7 +935,6 @@ class RebootView(discord.ui.View):
         button.disabled = True
         buttonAllDisable(self.children)
         await interaction.response.edit_message(view=self)
-        await interaction.respond('再起動します')
         await f_reboot(interaction)
 
 def buttonAllDisable(children):
