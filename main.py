@@ -150,7 +150,7 @@ class LightParty(Party):
             for party in parties:
                 if party == self: continue
                 print(f'{party.number}: {party.membersNum()}')
-                if party.membersNum() == 4 and self.aliance is not None:
+                if party.membersNum() == 4 and party.aliance is None:
                     print(f'Aliance:{self.number}-{party.number}')
                     await self.addAlianceParty(party)
                     break
