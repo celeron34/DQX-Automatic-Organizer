@@ -204,7 +204,7 @@ class SpeedParty(Party):
         msg = f'\| <:FullParty:1345733070065500281> 高速パーティ:{self.number} <:FullParty:1345733070065500281>'
         for partyRole, members in self.members.items():
             for member in members:
-                msg += f'\n{guildRolesEmoji[partyRole].emoji} \| {member.mention} '
+                msg += f'\n{guildRolesEmoji[partyRole].emoji} \| {member.mention}'
                 for memberRole in member.roles:
                     msg += str(guildRolesEmoji[memberRole].emoji)
         return msg
