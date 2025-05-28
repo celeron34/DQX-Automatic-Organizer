@@ -1034,6 +1034,19 @@ async def f_get_participant_data(ctx:discord.ApplicationContext):
         csvFile = discord.File(fp=f, filename=dt.now().strftime('participant_data_%y%m%d-%H%M%S.csv'))
     await ctx.respond(f'{ctx.interaction.user.mention}\nフォーマットは\n`年-月-日-時,ユーザーID,希望`\n希望は "l":殲滅 "h":高速', file=csvFile)
 
+@client.slash_command(name='f-get-participant-name', description='サーバーメンバのIDと現在の表示名の対応をcsv形式で返します')
+async def f_get_participant_name(ctx:discord.ApplicationContext):
+    if ctx.guild == None:
+        await ctx.respond('目的のサーバー内でコマンドしてください')
+        return 
+    filename = f'../reactionLog/{ctx.interaction.guild.name}_nameList.csv'
+    with open(filename, 'w') as f:
+        async for member in ctx.interaction.guild.fetch_members():
+            f.write(f'{member.id},{member.display_name}\n')
+    with open(filename, 'r') as f:
+        csvFile = discord.File(fp=f, filename=dt.now().strftime('participant_name_%y%m%d-%H%M%S.csv'))
+    await ctx.respond(f'{ctx.interaction.user.mention}\nフォーマットは\n`ユーザーID,表示名`', file=csvFile)
+
 async def f_reboot(ctx:discord.ApplicationContext|None = None):
     if ctx: await ctx.respond('再起動します')
     Popen([executable, '-u'] + argv, cwd=getcwd())  # ボットを再起動
