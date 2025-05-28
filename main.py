@@ -149,7 +149,7 @@ class LightParty(Party):
             print('aliance check')
             for party in parties:
                 if party == self: continue
-                print(f'{party.number}: {party.members()}')
+                print(f'{party.number}: {party.membersNum()}')
                 if party.membersNum() == 4 and self.aliance is not None:
                     print(f'Aliance:{self.number}-{party.number}')
                     await self.addAlianceParty(party)
