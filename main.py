@@ -80,6 +80,7 @@ class LightParty(Party):
         await self.thread.send(f'@here\n## パーティ{party.number} の同盟を解除')
         if self.membersNum() == 4:
             for party in ROBIN_GUILD.parties:
+                if party == self: continue
                 if isinstance(party, LightParty) and party.membersNum() == 4 and party.aliance is None:
                     await self.addAlianceParty(party)
                     break
