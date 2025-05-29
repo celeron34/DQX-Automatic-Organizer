@@ -93,7 +93,7 @@ class LightParty(Party):
             msg += f'\n{member.display_name}'
         await self.thread.send(msg)
 
-    async def leaveAliancePart(self):
+    async def leaveAlianceParty(self):
         await self.aliance._removeAliance(self)
         await self._removeAliance(self.aliance)
 
@@ -177,7 +177,7 @@ class LightParty(Party):
             raise TypeError(member)
         
         if self.aliance:
-            await self.leaveAliancePart()
+            await self.leaveAlianceParty()
         return True
 
     async def removeGuest(self) -> bool:
