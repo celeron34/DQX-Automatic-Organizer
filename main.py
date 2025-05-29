@@ -507,7 +507,7 @@ async def loop():
                     ROBIN_GUILD.parties.append(party)
             for party in lowspeedFormation(participants, len(ROBIN_GUILD.parties)):
                 ROBIN_GUILD.parties.append(party)
-            print(f'formation argolithm time: {dt.now() - formationStartTime}')
+            print(f'formation algorithm time: {dt.now() - formationStartTime}')
 
             try:
                 # パーティ同盟チェック
