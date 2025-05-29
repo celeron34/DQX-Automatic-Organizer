@@ -86,7 +86,7 @@ class LightParty(Party):
     async def sendAlianceInfo(self):
         msg = f'@here\n## [パーティ:{self.aliance.number}]({self.aliance.message.jump_url}) と同盟'
         for member in self.aliance.members:
-            msg += f'\n{member.display_name}'
+            msg += f'\n- {member.display_name}'
         if self.thread: await self.thread.send(msg)
 
     async def _removeAliance(self, party:LightParty):
