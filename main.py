@@ -68,7 +68,7 @@ class LightParty(Party):
     def __init__(self, number, players:list[Participant]=list()):
         super().__init__(number)
         self.members:list[Participant|Guest] = players
-        self.threadTopMessage:discord.Message|None = None
+        self.threadControlMessage:discord.Message|None = None
         self.aliance:LightParty|None = None
     
     async def addAlianceParty(self, party:LightParty):
@@ -403,8 +403,8 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
 def searchLightParty(message:discord.Message, parties:list[Party]) -> Party|None:
     for party in parties:
         if isinstance(party, LightParty):
-            print(f'target message:{message.id} party.message{party.message.id} party.threadTopMessage{party.threadTopMessage.id}')
-            if message.id == party.message.id or message.id == party.threadTopMessage.id:
+            print(f'target message:{message.id} party.message{party.message.id} party.threadControlMessage{party.threadControlMessage.id}')
+            if message.id == party.message.id or message.id == party.threadControlMessage.id:
                 return party
     return None
 
@@ -550,7 +550,7 @@ async def loop():
             elif isinstance(party, LightParty):
                 party.thread = await party.message.create_thread(name=f'Party:{party.number}', auto_archive_duration=60)
                 await party.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
-                party.threadTopMessage = await party.thread.send(view=PartyView(timeout=3600))
+                party.threadControlMessage = await party.thread.send(view=PartyView(timeout=3600))
                 
         print(f'{dt.now()} Create Threads END')
         print(f'{dt.now()} Add Log')
@@ -905,7 +905,7 @@ async def createNewParty(user:discord.Member):
     newParty.message = await ROBIN_GUILD.PARTY_CH.send(newParty.getPartyMessage(ROBIN_GUILD.ROLES))
     newParty.thread = await newParty.message.create_thread(name=f'Party:{newParty.number}', auto_archive_duration=60)
     timeout = (ROBIN_GUILD.timeTable[0] - dt.now() + delta(minutes=60))
-    newParty.threadTopMessage = await newParty.thread.send(view=PartyView(timeout=timeout.seconds))
+    newParty.threadControlMessage = await newParty.thread.send(view=PartyView(timeout=timeout.seconds))
     await newParty.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
     ROBIN_GUILD.parties.append(newParty)
 
