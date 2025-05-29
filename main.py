@@ -192,11 +192,7 @@ class LightParty(Party):
     
     def isEmpty(self) -> bool:
         return all(map(lambda member: not isinstance(member, Participant), self.members))
-        
-    # async def unionParty(self):
-    #     '''パーティ同盟'''
-    #     pass
-        
+
 class SpeedParty(Party):
     def __init__(self, number, rolesNum:dict[discord.Role, int]):
         super().__init__(number)
@@ -490,8 +486,6 @@ async def loop():
                         participants.append(participant)
             participantNum = len(participants)
 
-            # await ROBIN_GUILD.reclutingMessage.delete() # メッセージデリート
-
             print('participants')
             print([participant.display_name for participant in participants])
             
@@ -501,7 +495,6 @@ async def loop():
             # 編成
             shuffle(participants)
             print(f'shaffled: {[participant.display_name for participant in participants]}')
-            # parties:list[list[Participant]] = formation(participants)
             if participantNum >= 10:
                 for party in hispeedFormation(participants):
                     ROBIN_GUILD.parties.append(party)
@@ -593,8 +586,6 @@ async def loop():
 ##############################################################################################
 async def command_message(textch:discord.TextChannel) -> discord.Message:
     msg = await textch.send(content=f'## 追加・削除したいロールをタップ', view=RoleManageView())
-    # for r in roles.values():
-    #     await msg.add_reaction(r.emoji)
     return msg
 
 async def getTimetable(updateStatus:bool=True) -> list[dt]:
@@ -806,8 +797,6 @@ class ApproveView(discord.ui.View):
                 await interaction.response.defer()
                 msg = await interaction.channel.send(f'{interaction.user.mention}\nパーティメンバ以外は操作できません')
                 await msg.delete(delay=5)
-                # if type(self.timeout) == float: self.timeout+= self.startTime - perf_counter()
-                # await interaction.response.edit_message(content='パーティメンバ以外は承認できません', view=self)
                 return
         except Exception as e:
             printTraceback(e)
