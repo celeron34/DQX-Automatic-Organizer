@@ -81,8 +81,10 @@ class LightParty(Party):
 
     async def _addAlience(self, party:LightParty):
         self.aliance = party
-        # 同盟先のパーティ情報
-        msg = f'@here\n## [パーティ{self.aliance.number}]({self.aliance.message.jump_url}) と同盟'
+        await self.sendAlianceInfo()
+    
+    async def sendAlianceInfo(self):
+        msg = f'@here\n## [パーティ:{self.aliance.number}]({self.aliance.message.jump_url}) と同盟'
         for member in self.aliance.members:
             msg += f'\n{member.display_name}'
         await self.thread.send(msg)
@@ -551,7 +553,11 @@ async def loop():
                 party.thread = await party.message.create_thread(name=f'Party:{party.number}', auto_archive_duration=60)
                 await party.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
                 party.threadTopMessage = await party.thread.send(view=PartyView(timeout=3600))
-                
+                if party.aliance:
+                    try:
+                        await party.sendAlianceInfo()
+                    except Exception as e:
+                        printTraceback(e)
         print(f'{dt.now()} Create Threads END')
         print(f'{dt.now()} Add Log')
         with open(f'reactionLog/{ROBIN_GUILD.GUILD.name}.csv', 'a', encoding='utf8') as f:
