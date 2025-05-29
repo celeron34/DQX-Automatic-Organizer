@@ -75,6 +75,18 @@ class LightParty(Party):
         await self._addAlience(party)
         await party._addAlience(self)
 
+    async def leaveAlianceParty(self):
+        await self.aliance._removeAliance(self)
+        await self._removeAliance(self.aliance)
+
+    async def _addAlience(self, party:LightParty):
+        self.aliance = party
+        # 同盟先のパーティ情報
+        msg = f'@here\n## [パーティ{self.aliance.number}]({self.aliance.message.jump_url}) と同盟'
+        for member in self.aliance.members:
+            msg += f'\n{member.display_name}'
+        await self.thread.send(msg)
+
     async def _removeAliance(self, party:LightParty):
         self.aliance = None
         await self.thread.send(f'@here\n## パーティ{party.number} の同盟を解除')
@@ -86,18 +98,18 @@ class LightParty(Party):
                     break
         await self.message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
 
-    async def _addAlience(self, party:LightParty):
-        self.aliance = party
-        # 同盟先のパーティ情報
-        msg = f'@here\n## [パーティ{self.aliance.number}]({self.aliance.message.jump_url}) と同盟'
-        for member in self.aliance.members:
-            msg += f'\n{member.display_name}'
-        await self.thread.send(msg)
-
-    async def leaveAlianceParty(self):
-        await self.aliance._removeAliance(self)
-        await self._removeAliance(self.aliance)
-
+    async def alianceCheck(self, parties:list[LightParty]):
+        if self.membersNum() == 4 and self.aliance is None:
+            # ４人到達 アライアンス探索
+            print('aliance check')
+            for party in parties:
+                if party == self: continue
+                print(f'{party.number}: {party.membersNum()}')
+                if party.membersNum() == 4 and party.aliance is None:
+                    print(f'Aliance:{self.number}-{party.number}')
+                    await self.addAlianceParty(party)
+                    break
+    
     def membersNum(self) -> int:
         return len(self.members)
 
@@ -146,18 +158,6 @@ class LightParty(Party):
         await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
         await self.alianceCheck(ROBIN_GUILD.parties)
         return True
-    
-    async def alianceCheck(self, parties:list[LightParty]):
-        if self.membersNum() == 4 and self.aliance is None:
-            # ４人到達 アライアンス探索
-            print('aliance check')
-            for party in parties:
-                if party == self: continue
-                print(f'{party.number}: {party.membersNum()}')
-                if party.membersNum() == 4 and party.aliance is None:
-                    print(f'Aliance:{self.number}-{party.number}')
-                    await self.addAlianceParty(party)
-                    break
     
     async def removeMember(self, member:Participant|discord.Member|Guest) -> bool:
         if isinstance(member, Guest):
