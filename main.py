@@ -91,13 +91,8 @@ class LightParty(Party):
 
     async def _removeAliance(self, party:LightParty):
         self.aliance = None
-        await self.thread.send(f'@here\n## パーティ{party.number} の同盟を解除')
-        if self.membersNum() == 4:
-            for party in ROBIN_GUILD.parties:
-                if party == self: continue
-                if isinstance(party, LightParty) and party.membersNum() == 4 and party.aliance is None:
-                    await self.addAlianceParty(party)
-                    break
+        await self.thread.send(f'@here\n## パーティ:{party.number} の同盟を解除')
+        await self.alianceCheck(ROBIN_GUILD.parties)
         await self.message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
 
     async def alianceCheck(self, parties:list[LightParty]):
