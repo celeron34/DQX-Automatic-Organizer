@@ -492,7 +492,6 @@ async def loop():
                         if user == client.user: continue
                         roles = {role for role in user.roles if role in ROBIN_GUILD.ROLES.keys()}
                         participant = Participant(user, roles)
-                        participant.hiSpeed = False
                         participants.append(participant)
             participantNum = len(participants)
 
