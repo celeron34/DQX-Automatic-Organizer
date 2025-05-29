@@ -37,12 +37,12 @@ class RoleInfo:
         self.count:int = count
         
 class PartyMember: # パーティメンバ親クラス
-    def __init__(self, user:discord.Member|None, roles:set[discord.Role]):
+    def __init__(self, user:discord.Member|None, roles:dict[discord.Role, discord.Emoji]):
         self.user:discord.Member|None = user
-        self.roles:set[discord.Role] = roles
+        self.roles:dict[discord.Role,discord.Emoji] = roles
 
 class Participant(PartyMember): # メンバと可能ロール
-    def __init__(self, user:discord.User|discord.Member, roles:set[discord.Role]):
+    def __init__(self, user:discord.Member, roles:set[discord.Role, discord.Emoji]):
         super().__init__(user, roles)
         self.mention:str = user.mention
         self.id = user.id
@@ -81,32 +81,29 @@ class LightParty(Party):
 
     async def _addAlience(self, party:LightParty):
         self.aliance = party
-        # 同盟先のパーティ情報
-        msg = f'@here\n## [パーティ{self.aliance.number}]({self.aliance.message.jump_url}) と同盟'
+        await self.sendAlianceInfo()
+    
+    async def sendAlianceInfo(self):
+        msg = f'@here\n## [パーティ:{self.aliance.number}]({self.aliance.message.jump_url}) と同盟'
         for member in self.aliance.members:
             msg += f'\n{member.display_name}'
-        await self.thread.send(msg)
+        if self.thread: await self.thread.send(msg)
 
     async def _removeAliance(self, party:LightParty):
         self.aliance = None
-        await self.thread.send(f'@here\n## パーティ{party.number} の同盟を解除')
-        if self.membersNum() == 4:
-            for party in ROBIN_GUILD.parties:
-                if party == self: continue
-                if isinstance(party, LightParty) and party.membersNum() == 4 and party.aliance is None:
-                    await self.addAlianceParty(party)
-                    break
+        await self.thread.send(f'@here\n## パーティ:{party.number} の同盟を解除')
+        await self.alianceCheck(ROBIN_GUILD.parties)
         await self.message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
 
     async def alianceCheck(self, parties:list[LightParty]):
         if self.membersNum() == 4 and self.aliance is None:
             # ４人到達 アライアンス探索
-            print('aliance check')
+            print(f'party:{self.number} aliance check')
             for party in parties:
                 if party == self: continue
-                print(f'{party.number}: {party.membersNum()}')
+                print(f'party:{party.number} -> {party.membersNum()}')
                 if party.membersNum() == 4 and party.aliance is None:
-                    print(f'Aliance:{self.number}-{party.number}')
+                    print(f'Aliance:{self.number} <=> {party.number}')
                     await self.addAlianceParty(party)
                     break
     
@@ -155,8 +152,9 @@ class LightParty(Party):
         if isinstance(participant, Participant): # メンバならスレッドに入れる
             await self.thread.add_user(participant.user)
         await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
-        await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
         await self.alianceCheck(ROBIN_GUILD.parties)
+        await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
+        
         return True
     
     async def removeMember(self, member:Participant|discord.Member|Guest) -> bool:
@@ -177,7 +175,7 @@ class LightParty(Party):
         else:
             raise TypeError(member)
         
-        if self.aliance:
+        if self.aliance and self.membersNum() < 4:
             await self.leaveAlianceParty()
         return True
 
@@ -194,11 +192,7 @@ class LightParty(Party):
     
     def isEmpty(self) -> bool:
         return all(map(lambda member: not isinstance(member, Participant), self.members))
-        
-    # async def unionParty(self):
-    #     '''パーティ同盟'''
-    #     pass
-        
+
 class SpeedParty(Party):
     def __init__(self, number, rolesNum:dict[discord.Role, int]):
         super().__init__(number)
@@ -489,11 +483,8 @@ async def loop():
                         if user == client.user: continue
                         roles = {role for role in user.roles if role in ROBIN_GUILD.ROLES.keys()}
                         participant = Participant(user, roles)
-                        participant.hiSpeed = False
                         participants.append(participant)
             participantNum = len(participants)
-
-            # await ROBIN_GUILD.reclutingMessage.delete() # メッセージデリート
 
             print('participants')
             print([participant.display_name for participant in participants])
@@ -504,13 +495,12 @@ async def loop():
             # 編成
             shuffle(participants)
             print(f'shaffled: {[participant.display_name for participant in participants]}')
-            # parties:list[list[Participant]] = formation(participants)
             if participantNum >= 10:
                 for party in hispeedFormation(participants):
                     ROBIN_GUILD.parties.append(party)
             for party in lowspeedFormation(participants, len(ROBIN_GUILD.parties)):
                 ROBIN_GUILD.parties.append(party)
-            print(f'formation argolithm time: {dt.now() - formationStartTime}')
+            print(f'formation algorithm time: {dt.now() - formationStartTime}')
 
             try:
                 # パーティ同盟チェック
@@ -525,18 +515,7 @@ async def loop():
                                             view=FormationTopView(timeout=3600))
             
             for party in ROBIN_GUILD.parties:
-                if isinstance(party, SpeedParty):
-                    party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
-                elif isinstance(party, LightParty):
-                    try:
-                        if party.aliance is None:
-                            msg = party.getPartyMessage(ROBIN_GUILD.ROLES)
-                        else:
-                            msg = party.getPartyMessage(ROBIN_GUILD.ROLES)
-                        party.message = await ROBIN_GUILD.PARTY_CH.send(msg)
-                    except Exception as e:
-                        party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
-                        printTraceback(e)
+                party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
 
         print(f'{dt.now()} Formation END')
 
@@ -550,8 +529,12 @@ async def loop():
             elif isinstance(party, LightParty):
                 party.thread = await party.message.create_thread(name=f'Party:{party.number}', auto_archive_duration=60)
                 await party.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
-                party.threadControlMessage = await party.thread.send(view=PartyView(timeout=3600))
-                
+                party.threadTopMessage = await party.thread.send(view=PartyView(timeout=3600))
+                if party.aliance:
+                    try:
+                        await party.sendAlianceInfo()
+                    except Exception as e:
+                        printTraceback(e)
         print(f'{dt.now()} Create Threads END')
         print(f'{dt.now()} Add Log')
         with open(f'reactionLog/{ROBIN_GUILD.GUILD.name}.csv', 'a', encoding='utf8') as f:
@@ -603,8 +586,6 @@ async def loop():
 ##############################################################################################
 async def command_message(textch:discord.TextChannel) -> discord.Message:
     msg = await textch.send(content=f'## 追加・削除したいロールをタップ', view=RoleManageView())
-    # for r in roles.values():
-    #     await msg.add_reaction(r.emoji)
     return msg
 
 async def getTimetable(updateStatus:bool=True) -> list[dt]:
@@ -816,8 +797,6 @@ class ApproveView(discord.ui.View):
                 await interaction.response.defer()
                 msg = await interaction.channel.send(f'{interaction.user.mention}\nパーティメンバ以外は操作できません')
                 await msg.delete(delay=5)
-                # if type(self.timeout) == float: self.timeout+= self.startTime - perf_counter()
-                # await interaction.response.edit_message(content='パーティメンバ以外は承認できません', view=self)
                 return
         except Exception as e:
             printTraceback(e)
