@@ -168,6 +168,8 @@ class LightParty(Party):
                     self.members.remove(participant)
                     print(f'PartyNum: {self.number} RemoveMember: {member.display_name}')
                     await self.thread.send(f'{member.display_name} が離脱\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
+                    if self.aliance and self.membersNum() < 4:
+                        await self.leaveAlianceParty()
                     await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
                     break
             else:
@@ -175,8 +177,6 @@ class LightParty(Party):
         else:
             raise TypeError(member)
         
-        if self.aliance and self.membersNum() < 4:
-            await self.leaveAlianceParty()
         return True
 
     async def removeGuest(self) -> bool:
