@@ -103,12 +103,12 @@ class LightParty(Party):
     async def alianceCheck(self, parties:list[LightParty]):
         if self.membersNum() == 4 and self.aliance is None:
             # ４人到達 アライアンス探索
-            print('aliance check')
+            print(f'party:{self.number} aliance check')
             for party in parties:
                 if party == self: continue
-                print(f'{party.number}: {party.membersNum()}')
+                print(f'party:{party.number} -> {party.membersNum()}')
                 if party.membersNum() == 4 and party.aliance is None:
-                    print(f'Aliance:{self.number}-{party.number}')
+                    print(f'Aliance:{self.number} <=> {party.number}')
                     await self.addAlianceParty(party)
                     break
     
