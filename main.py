@@ -522,18 +522,7 @@ async def loop():
                                             view=FormationTopView(timeout=3600))
             
             for party in ROBIN_GUILD.parties:
-                if isinstance(party, SpeedParty):
-                    party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
-                elif isinstance(party, LightParty):
-                    try:
-                        if party.aliance is None:
-                            msg = party.getPartyMessage(ROBIN_GUILD.ROLES)
-                        else:
-                            msg = party.getPartyMessage(ROBIN_GUILD.ROLES)
-                        party.message = await ROBIN_GUILD.PARTY_CH.send(msg)
-                    except Exception as e:
-                        party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
-                        printTraceback(e)
+                party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
 
         print(f'{dt.now()} Formation END')
 
