@@ -37,12 +37,12 @@ class RoleInfo:
         self.count:int = count
         
 class PartyMember: # パーティメンバ親クラス
-    def __init__(self, user:discord.Member|None, roles:set[discord.Role]):
+    def __init__(self, user:discord.Member|None, roles:dict[discord.Role, discord.Emoji]):
         self.user:discord.Member|None = user
-        self.roles:set[discord.Role] = roles
+        self.roles:dict[discord.Role,discord.Emoji] = roles
 
 class Participant(PartyMember): # メンバと可能ロール
-    def __init__(self, user:discord.User|discord.Member, roles:set[discord.Role]):
+    def __init__(self, user:discord.Member, roles:set[discord.Role, discord.Emoji]):
         super().__init__(user, roles)
         self.mention:str = user.mention
         self.id = user.id
