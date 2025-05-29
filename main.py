@@ -175,7 +175,7 @@ class LightParty(Party):
         else:
             raise TypeError(member)
         
-        if self.aliance:
+        if self.aliance and self.membersNum() < 4:
             await self.leaveAlianceParty()
         return True
 
