@@ -154,7 +154,6 @@ class LightParty(Party):
         await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
         await self.alianceCheck(ROBIN_GUILD.parties)
         await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
-        
         return True
     
     async def removeMember(self, member:Participant|discord.Member|Guest) -> bool:
