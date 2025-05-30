@@ -113,11 +113,7 @@ class LightParty(Party):
     def getPartyMessage(self, guildRolesEmoji:dict[discord.Role,RoleInfo]) -> str:
         msg = f'\| 【パーティ:{self.number}】'
         if self.aliance:
-            try: 
-                msg += f'同盟 -> [パーティ{self.aliance.number}]({self.aliance.message.jump_url})'
-            except Exception as e:
-                printTraceback(e)
-                msg += f'同盟 -> パーティ{self.aliance.number}'
+            msg += f'同盟 -> [パーティ{self.aliance.number}]({self.aliance.message.jump_url})'
         for player in self.members:
             msg += f'\n\| {player.mention}'
             for role in player.roles:
