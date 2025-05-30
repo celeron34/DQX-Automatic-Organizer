@@ -74,6 +74,7 @@ class LightParty(Party):
     async def addAlianceParty(self, party:LightParty):
         await self._addAlience(party)
         await party._addAlience(self)
+        await party.message.edit(party.getPartyMessage(ROBIN_GUILD.ROLES))
 
     async def leaveAlianceParty(self):
         await self.aliance._removeAliance(self)
