@@ -529,7 +529,7 @@ async def loop():
             elif isinstance(party, LightParty):
                 party.thread = await party.message.create_thread(name=f'Party:{party.number}', auto_archive_duration=60)
                 await party.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
-                party.threadTopMessage = await party.thread.send(view=PartyView(timeout=3600))
+                party.threadControlMessage = await party.thread.send(view=PartyView(timeout=3600))
                 if party.aliance:
                     try:
                         await party.sendAlianceInfo()
