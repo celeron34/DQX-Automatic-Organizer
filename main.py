@@ -74,6 +74,7 @@ class LightParty(Party):
     async def addAlianceParty(self, party:LightParty):
         await self._addAlience(party)
         await party._addAlience(self)
+        await party.message.edit(party.getPartyMessage(ROBIN_GUILD.ROLES))
 
     async def leaveAlianceParty(self):
         await self.aliance._removeAliance(self)
@@ -113,11 +114,7 @@ class LightParty(Party):
     def getPartyMessage(self, guildRolesEmoji:dict[discord.Role,RoleInfo]) -> str:
         msg = f'\| 【パーティ:{self.number}】'
         if self.aliance:
-            try: 
-                msg += f'同盟 -> [パーティ{self.aliance.number}]({self.aliance.message.jump_url})'
-            except Exception as e:
-                printTraceback(e)
-                msg += f'同盟 -> パーティ{self.aliance.number}'
+            msg += f'同盟 -> [パーティ{self.aliance.number}]({self.aliance.message.jump_url})'
         for player in self.members:
             msg += f'\n\| {player.mention}'
             for role in player.roles:
@@ -154,7 +151,6 @@ class LightParty(Party):
         await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
         await self.alianceCheck(ROBIN_GUILD.parties)
         await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
-        
         return True
     
     async def removeMember(self, member:Participant|discord.Member|Guest) -> bool:
