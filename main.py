@@ -498,14 +498,6 @@ async def loop():
                 ROBIN_GUILD.parties.append(party)
             print(f'formation algorithm time: {dt.now() - formationStartTime}')
 
-            try:
-                # パーティ同盟チェック
-                for party in ROBIN_GUILD.parties:
-                    if isinstance(party, LightParty):
-                        await party.alianceCheck(ROBIN_GUILD.parties)
-            except Exception as e:
-                printTraceback(e)
-
             # パーティ通知メッセージ
             await ROBIN_GUILD.PARTY_CH.send(ROBIN_GUILD.timeTable[0].strftime('## %H時のパーティ編成が完了しました\n参加者は ___**サーバー3**___ へ\n原則、一番上がリーダーです' + '' if participantNum != 8 else '\n参加者が8人ですので\n## 殲滅固定（カンダタを倒す）同盟です\n参加者は ___**サーバー3**___ へ'), \
                                             view=FormationTopView(timeout=3600))
@@ -532,6 +524,14 @@ async def loop():
                     except Exception as e:
                         printTraceback(e)
         print(f'{dt.now()} Create Threads END')
+        try:
+            # パーティ同盟チェック
+            for party in ROBIN_GUILD.parties:
+                if isinstance(party, LightParty):
+                    await party.alianceCheck(ROBIN_GUILD.parties)
+        except Exception as e:
+            printTraceback(e)
+
         print(f'{dt.now()} Add Log')
         with open(f'reactionLog/{ROBIN_GUILD.GUILD.name}.csv', 'a', encoding='utf8') as f:
             for participant in participants:
