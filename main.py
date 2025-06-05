@@ -186,6 +186,12 @@ class LightParty(Party):
         await self.thread.send('ゲストがいないためパーティに変更はありません')
         return False
     
+    def isMember(self, user:discord.Member):
+        try: return user in self.members
+        except Exception as e:
+            printTraceback(e)
+            return False
+    
     def isEmpty(self) -> bool:
         return all(map(lambda member: not isinstance(member, Participant), self.members))
 
@@ -782,9 +788,11 @@ class ApproveView(discord.ui.View):
                 thread = message.channel
                 joinMember = party.joins[message]
                 print(f'JoinMember: {joinMember}')
+                for party in ROBIN_GUILD.parties:
+                    if party.isMember(joinMember):
+                        party.removeMember(joinMember)
                 for p in {p for p in ROBIN_GUILD.parties if joinMember in p.joins.values()}: # 参加リアクション全削除
                     await p.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember)
-                await thread.add_user(joinMember) # パーティへ追加
                 await party.joinMember(Participant(joinMember, set(role for role in joinMember.roles if role in ROBIN_GUILD.ROLES.keys())))
                 del party.joins[message] # 申請削除
                 await thread.starting_message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember) # リアクション処理
