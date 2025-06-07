@@ -178,10 +178,11 @@ class LightParty(Party):
     async def removeGuest(self) -> bool:
         for member in self.members:
             if isinstance(member, Guest):
-                self.members.remove(member)
-                print(f'PartyNum: {self.number} RemoveMember: {member.display_name}')
-                await self.thread.send(f'{member.display_name} が離脱\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
-                await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
+                self.removeMember(Guest())
+                # self.members.remove(member)
+                # print(f'PartyNum: {self.number} RemoveMember: {member.display_name}')
+                # await self.thread.send(f'{member.display_name} が離脱\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
+                # await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
                 return True
         await self.thread.send('ゲストがいないためパーティに変更はありません')
         return False
