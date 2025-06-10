@@ -1,4 +1,4 @@
-version = '1.0.1'
+version = '1.0.3'
 
 from __future__ import annotations
 import discord
@@ -143,7 +143,7 @@ class LightParty(Party):
     def addMember(self, participant:Participant|Guest) -> bool:
         self.members.append(participant)
     
-    async def joinMember(self, participant:Participant|Guest):
+    async def joinMember(self, participant:Participant|Guest) -> bool:
         if not isinstance(participant, Guest) and participant.user in map(lambda x:x.user, self.members): return False
         self.addMember(participant)
         if self.thread is None: return True
@@ -152,6 +152,8 @@ class LightParty(Party):
             await self.thread.add_user(participant.user)
         await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
         await self.alianceCheck(ROBIN_GUILD.parties)
+        if self.membersNum() >= 4:
+            self.message.clear_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
         await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
         return True
     
@@ -170,8 +172,9 @@ class LightParty(Party):
                         await self.leaveAlianceParty()
                     await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
                     break
-            else:
-                return False
+            else: return False
+            if self.membersNum() >= 4:
+                self.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
         else:
             raise TypeError(member)
         
@@ -533,8 +536,7 @@ async def loop():
                     except Exception as e:
                         printTraceback(e)
         print(f'{dt.now()} Create Threads END')
-        try:
-            # パーティ同盟チェック
+        try: # パーティ同盟チェック
             for party in ROBIN_GUILD.parties:
                 if isinstance(party, LightParty):
                     joinAliance:bool = False
