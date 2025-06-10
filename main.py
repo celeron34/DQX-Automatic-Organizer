@@ -535,7 +535,10 @@ async def loop():
             # パーティ同盟チェック
             for party in ROBIN_GUILD.parties:
                 if isinstance(party, LightParty):
-                    await party.alianceCheck(ROBIN_GUILD.parties)
+                    joinAliance:bool = False
+                    joinAliance = await party.alianceCheck(ROBIN_GUILD.parties)
+                    if joinAliance:
+                        await party.message.edit(party.getPartyMessage(ROBIN_GUILD.ROLES))
         except Exception as e:
             printTraceback(e)
 
