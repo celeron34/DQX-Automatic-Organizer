@@ -1,6 +1,6 @@
+from __future__ import annotations # 必ず先頭に
 version = '1.0.3'
 
-from __future__ import annotations
 import discord
 from discord.ext import tasks, commands
 from dqx_ise import getTable
