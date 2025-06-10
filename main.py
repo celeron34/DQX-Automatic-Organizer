@@ -1,3 +1,5 @@
+version = '1.0.1'
+
 from __future__ import annotations
 import discord
 from discord.ext import tasks, commands
@@ -1037,7 +1039,7 @@ async def f_reboot(ctx:discord.ApplicationContext|None = None):
 ##############################################################################################
 if __name__ == '__main__':
     print(f'##################################################################################')
-    print(f'{dt.now()} スクリプト起動')
+    print(f'{dt.now()} スクリプト起動 Ver.{version}')
     # print(f"Intents.members: {client.intents.members}")  # True ならOK
     try:
         with open('../token.csv', 'r', encoding='utf-8') as f:
