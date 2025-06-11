@@ -1,4 +1,6 @@
-from __future__ import annotations
+from __future__ import annotations # 必ず先頭に
+version = '1.0.3'
+
 import discord
 from discord.ext import tasks, commands
 from dqx_ise import getTable
@@ -141,7 +143,7 @@ class LightParty(Party):
     def addMember(self, participant:Participant|Guest) -> bool:
         self.members.append(participant)
     
-    async def joinMember(self, participant:Participant|Guest):
+    async def joinMember(self, participant:Participant|Guest) -> bool:
         if not isinstance(participant, Guest) and participant.user in map(lambda x:x.user, self.members): return False
         self.addMember(participant)
         if self.thread is None: return True
@@ -150,6 +152,8 @@ class LightParty(Party):
             await self.thread.add_user(participant.user)
         await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
         await self.alianceCheck(ROBIN_GUILD.parties)
+        if self.membersNum() >= 4:
+            self.message.clear_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
         await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
         return True
     
@@ -168,8 +172,9 @@ class LightParty(Party):
                         await self.leaveAlianceParty()
                     await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
                     break
-            else:
-                return False
+            else: return False
+            if self.membersNum() >= 4:
+                self.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
         else:
             raise TypeError(member)
         
@@ -178,10 +183,11 @@ class LightParty(Party):
     async def removeGuest(self) -> bool:
         for member in self.members:
             if isinstance(member, Guest):
-                self.members.remove(member)
-                print(f'PartyNum: {self.number} RemoveMember: {member.display_name}')
-                await self.thread.send(f'{member.display_name} が離脱\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
-                await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
+                self.removeMember(Guest())
+                # self.members.remove(member)
+                # print(f'PartyNum: {self.number} RemoveMember: {member.display_name}')
+                # await self.thread.send(f'{member.display_name} が離脱\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
+                # await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
                 return True
         await self.thread.send('ゲストがいないためパーティに変更はありません')
         return False
@@ -530,11 +536,13 @@ async def loop():
                     except Exception as e:
                         printTraceback(e)
         print(f'{dt.now()} Create Threads END')
-        try:
-            # パーティ同盟チェック
+        try: # パーティ同盟チェック
             for party in ROBIN_GUILD.parties:
                 if isinstance(party, LightParty):
-                    await party.alianceCheck(ROBIN_GUILD.parties)
+                    joinAliance:bool = False
+                    joinAliance = await party.alianceCheck(ROBIN_GUILD.parties)
+                    if joinAliance:
+                        await party.message.edit(party.getPartyMessage(ROBIN_GUILD.ROLES))
         except Exception as e:
             printTraceback(e)
 
@@ -1033,7 +1041,7 @@ async def f_reboot(ctx:discord.ApplicationContext|None = None):
 ##############################################################################################
 if __name__ == '__main__':
     print(f'##################################################################################')
-    print(f'{dt.now()} スクリプト起動')
+    print(f'{dt.now()} スクリプト起動 Ver.{version}')
     # print(f"Intents.members: {client.intents.members}")  # True ならOK
     try:
         with open('../token.csv', 'r', encoding='utf-8') as f:
