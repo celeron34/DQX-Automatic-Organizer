@@ -1,5 +1,5 @@
 from __future__ import annotations # 必ず先頭に
-version = '1.0.3'
+version = '1.0.3b'
 
 import discord
 from discord.ext import tasks, commands
@@ -473,6 +473,9 @@ async def loop():
         # await ROBIN_GUILD.reclutingMessage.add_reaction(ROBIN_GUILD.FULLPARTY_EMOJI) # フルパーティリアクション追加
         await client.change_presence(activity=discord.CustomActivity(name=ROBIN_GUILD.timeTable[0].strftime("Formation:%H時")))
     
+    if now == ROBIN_GUILD.timeTable[0] - delta(minutes=15):
+        await ROBIN_GUILD.PARTY_CH.send(f'パーティ編成まで残り5分 {ROBIN_GUILD.reclutingMessage.jump_url}')
+
     ######################################################
     # パーティ編成をアナウンス
     elif now == ROBIN_GUILD.timeTable[0] - delta(minutes=10):
