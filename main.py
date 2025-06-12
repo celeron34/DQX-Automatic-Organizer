@@ -103,7 +103,7 @@ class LightParty(Party):
             # ４人到達 アライアンス探索
             print(f'party:{self.number} aliance check')
             for party in parties:
-                if party == self: continue
+                if party == self or not isinstance(party, LightParty): continue
                 print(f'party:{party.number} -> {party.membersNum()}')
                 if party.membersNum() == 4 and party.aliance is None:
                     print(f'Aliance:{self.number} <=> {party.number}')
@@ -805,7 +805,7 @@ class ApproveView(discord.ui.View):
                 joinMember = party.joins[message]
                 print(f'JoinMember: {joinMember}')
                 for party in ROBIN_GUILD.parties:
-                    if party.isMember(joinMember):
+                    if isinstance(party, LightParty) and party.isMember(joinMember):
                         party.removeMember(joinMember)
                 for p in {p for p in ROBIN_GUILD.parties if joinMember in p.joins.values()}: # 参加リアクション全削除
                     await p.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember)
