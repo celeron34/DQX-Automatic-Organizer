@@ -402,10 +402,10 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
 
 ##############################################################################################
 ## 
-def searchLightParty(message:discord.Message, parties:list[Party]) -> Party|None:
+def searchLightParty(message:discord.Message, parties:list[Party]) -> LightParty|None:
     for party in parties:
         if isinstance(party, LightParty):
-            print(f'target message:{message.id} party.message{party.message.id} party.threadControlMessage{party.threadControlMessage.id}')
+            print(f'target message:{message.id} party.message:{party.message.id} party.threadControlMessage:{party.threadControlMessage.id}')
             if message.id == party.message.id or message.id == party.threadControlMessage.id:
                 return party
     return None
@@ -804,9 +804,9 @@ class ApproveView(discord.ui.View):
                 thread = message.channel
                 joinMember = party.joins[message]
                 print(f'JoinMember: {joinMember}')
-                for party in ROBIN_GUILD.parties:
-                    if isinstance(party, LightParty) and party.isMember(joinMember):
-                        party.removeMember(joinMember)
+                for p in ROBIN_GUILD.parties:
+                    if isinstance(p, LightParty) and p.isMember(joinMember):
+                        p.removeMember(joinMember)
                 for p in {p for p in ROBIN_GUILD.parties if joinMember in p.joins.values()}: # 参加リアクション全削除
                     await p.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember)
                 await party.joinMember(Participant(joinMember, set(role for role in joinMember.roles if role in ROBIN_GUILD.ROLES.keys())))
