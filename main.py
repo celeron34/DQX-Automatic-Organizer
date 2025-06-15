@@ -283,7 +283,7 @@ async def on_ready():
     ROBIN_GUILD.PARTY_CH      = client.get_channel(1246662816673304587)
     ROBIN_GUILD.PARTY_CH_beta = client.get_channel(1346195417808896041)
     ROBIN_GUILD.PARTY_LOG     = client.get_channel(1353638340456484916)
-    ROBIN_GUILD.DEV_CH        = client.get_channel(1246662742987772067)
+    ROBIN_GUILD.DEV_CH        = client.get_channel(1365285325810962534)
     ROBIN_GUILD.COMMAND_CH    = client.get_channel(1249294452149715016)
 
     # 絵文字ゲット
