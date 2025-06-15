@@ -402,10 +402,10 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
 
 ##############################################################################################
 ## 
-def searchLightParty(message:discord.Message, parties:list[Party]) -> Party|None:
+def searchLightParty(message:discord.Message, parties:list[Party]) -> LightParty|None:
     for party in parties:
         if isinstance(party, LightParty):
-            print(f'target message:{message.id} party.message{party.message.id} party.threadControlMessage{party.threadControlMessage.id}')
+            print(f'target message:{message.id} party.message:{party.message.id} party.threadControlMessage:{party.threadControlMessage.id}')
             if message.id == party.message.id or message.id == party.threadControlMessage.id:
                 return party
     return None
