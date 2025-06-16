@@ -1,5 +1,5 @@
 from __future__ import annotations # 必ず先頭に
-version = '1.0.4b'
+version = '1.0.5b'
 
 import discord
 from discord.ext import tasks, commands
@@ -139,6 +139,24 @@ class LightParty(Party):
         print(f'Join request Done')
         requestMessage = await self.thread.send(f'@here {member.display_name} から加入申請', view=ApproveView(timeout=600))
         self.joins[requestMessage] = member
+
+    async def removeJoinRequest(self, target:discord.Member | LightParty) -> bool:
+        print(f'Remove join request target:{target}')
+        if isinstance(target, discord.Member):
+            for party in ROBIN_GUILD.parties:
+                if not isinstance(party, LightParty): continue
+                for message, member in party.joins.items():
+                    if member == target:
+                        if self != party:
+                            await message.edit(f'@here\n{target.display_name} が参加取り下げ', view=DummyApproveView())
+                        del party.joins[message]
+                        break
+            return True
+        elif isinstance(target, LightParty):
+            for message, member in target.joins.items():
+                del target.joins[message]
+            return True
+        else: return False
 
     def addMember(self, participant:Participant|Guest) -> bool:
         self.members.append(participant)
@@ -283,7 +301,7 @@ async def on_ready():
     ROBIN_GUILD.PARTY_CH      = client.get_channel(1246662816673304587)
     ROBIN_GUILD.PARTY_CH_beta = client.get_channel(1346195417808896041)
     ROBIN_GUILD.PARTY_LOG     = client.get_channel(1353638340456484916)
-    ROBIN_GUILD.DEV_CH        = client.get_channel(1246662742987772067)
+    ROBIN_GUILD.DEV_CH        = client.get_channel(1365285325810962534)
     ROBIN_GUILD.COMMAND_CH    = client.get_channel(1249294452149715016)
 
     # 絵文字ゲット
@@ -402,10 +420,10 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
 
 ##############################################################################################
 ## 
-def searchLightParty(message:discord.Message, parties:list[Party]) -> Party|None:
+def searchLightParty(message:discord.Message, parties:list[Party]) -> LightParty|None:
     for party in parties:
         if isinstance(party, LightParty):
-            print(f'target message:{message.id} party.message{party.message.id} party.threadControlMessage{party.threadControlMessage.id}')
+            print(f'target message:{message.id} party.message:{party.message.id} party.threadControlMessage:{party.threadControlMessage.id}')
             if message.id == party.message.id or message.id == party.threadControlMessage.id:
                 return party
     return None
@@ -804,13 +822,13 @@ class ApproveView(discord.ui.View):
                 thread = message.channel
                 joinMember = party.joins[message]
                 print(f'JoinMember: {joinMember}')
-                for party in ROBIN_GUILD.parties:
-                    if isinstance(party, LightParty) and party.isMember(joinMember):
-                        party.removeMember(joinMember)
+                for p in ROBIN_GUILD.parties:
+                    if isinstance(p, LightParty) and p.isMember(joinMember):
+                        p.removeMember(joinMember)
                 for p in {p for p in ROBIN_GUILD.parties if joinMember in p.joins.values()}: # 参加リアクション全削除
                     await p.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember)
                 await party.joinMember(Participant(joinMember, set(role for role in joinMember.roles if role in ROBIN_GUILD.ROLES.keys())))
-                del party.joins[message] # 申請削除
+                await party.removeJoinRequest(joinMember)
                 await thread.starting_message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember) # リアクション処理
             else:
                 print('パーティメンバ以外による承認')
@@ -820,6 +838,13 @@ class ApproveView(discord.ui.View):
                 return
         except Exception as e:
             printTraceback(e)
+
+class DummyApproveView(ApproveView):
+    def __init__(self):
+        super().__init__()
+    @discord.ui.button(label='承認', disabled=True)
+    async def approve(self, button:discord.ui.Button, interaction:discord.Interaction):
+        pass
 
 class PartyView(discord.ui.View):
     def __init__(self, *items, timeout = None, disable_on_timeout = True):
