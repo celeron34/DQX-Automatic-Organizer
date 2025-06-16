@@ -492,7 +492,7 @@ async def loop():
         await client.change_presence(activity=discord.CustomActivity(name=ROBIN_GUILD.timeTable[0].strftime("Formation:%H時")))
         
         try: # 250611 個別表示テスト
-            await ROBIN_GUILD.DEV_CH.send('個別表示テスト\n表示テストのみで編成等に影響しません', view=RecluteView())
+            await ROBIN_GUILD.DEV_CH.send('個別表示テスト\n表示テストのみで編成等に影響しません', view=RecluteView(timeout=1800, disable_on_timeout=False))
         except Exception as e:
             printTraceback(e)
     
@@ -962,11 +962,11 @@ class RecluteView(discord.ui.View):
         self.disable02 = disable02
     @discord.ui.button(label='Button01', style=discord.ButtonStyle.green)
     async def reclute01(self, button:discord.ui.Button, interaction:discord.Interaction):
-        await interaction.response.send_message(f'個別表示テスト {button.label} が押されました', ephemeral=True, view=RecluteView(disable01=True))
+        await interaction.response.send_message(f'個別表示テスト {button.label} が押されました', ephemeral=True, view=RecluteView(disable01=True, timeout=180, disable_on_timeout=False))
         print(f'{dt.now()} {interaction.user} {button.label}')
     @discord.ui.button(label='Button01', style=discord.ButtonStyle.red)
     async def reclute02(self, button:discord.ui.Button, interaction:discord.Interaction):
-        await interaction.response.send_message(f'個別表示テスト {button.label} が押されました', ephemeral=True, view=RecluteView(disable02=True))
+        await interaction.response.send_message(f'個別表示テスト {button.label} が押されました', ephemeral=True, view=RecluteView(disable02=True, timeout=180, disable_on_timeout=False))
         print(f'{dt.now()} {interaction.user} {button.label}')
 
 def buttonAllDisable(children):
