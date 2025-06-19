@@ -176,32 +176,25 @@ class LightParty(Party):
         return True
     
     async def removeMember(self, member:Participant|discord.Member|Guest) -> bool:
-        if isinstance(member, Guest):
-            self.removeGuest()
-        elif isinstance(member, Participant) or isinstance(member, discord.Member):
-            if isinstance(member, Participant): member = member.user # memberを必ずMemberクラスにする
-            if member not in map(lambda x:x.user, self.members): return False
-            for participant in self.members:
-                if participant.user == member:
-                    self.members.remove(participant)
-                    print(f'PartyNum: {self.number} RemoveMember: {member.display_name}')
-                    await self.thread.send(f'{member.display_name} が離脱\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
-                    if self.aliance and self.membersNum() < 4:
-                        await self.leaveAlianceParty()
-                    await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
-                    break
-            else: return False
+        if isinstance(member, Participant): member = member.user # memberであればMemberクラスにする
+        if member not in map(lambda x:x.user, self.members): return False
+        for participant in self.members[-1::-1]:
+            if participant.user == member:
+                self.members.remove(participant)
+                print(f'PartyNum: {self.number} RemoveMember: {member.display_name}')
+                await self.thread.send(f'{member.display_name} が離脱\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
+                if self.aliance and self.membersNum() < 4:
+                    await self.leaveAlianceParty()
+                await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
+                break
             if self.membersNum() >= 4:
                 self.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
-        else:
-            raise TypeError(member)
-        
         return True
 
     async def removeGuest(self) -> bool:
-        for member in self.members:
+        for member in self.members[-1::-1]:
             if isinstance(member, Guest):
-                self.removeMember(Guest())
+                await self.removeMember(member)
                 # self.members.remove(member)
                 # print(f'PartyNum: {self.number} RemoveMember: {member.display_name}')
                 # await self.thread.send(f'{member.display_name} が離脱\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
