@@ -67,11 +67,12 @@ class Party: # パーティ情報 メッセージとパーティメンバ
         self.thread:discord.Thread|None = None
 
 class LightParty(Party):
-    def __init__(self, number, players:list[Participant]=list()):
+    def __init__(self, number, players:list[Participant]=list(), free:bool=False):
         super().__init__(number)
         self.members:list[Participant|Guest] = players
         self.threadControlMessage:discord.Message|None = None
         self.aliance:LightParty|None = None
+        self.free:bool = free
     
     async def addAlianceParty(self, party:LightParty):
         await self._addAlience(party)
@@ -114,7 +115,10 @@ class LightParty(Party):
         return len(self.members)
 
     def getPartyMessage(self, guildRolesEmoji:dict[discord.Role,RoleInfo]) -> str:
-        msg = f'\| 【パーティ:{self.number}】'
+        msg = ''
+        if self.free:
+            msg += '## 途中抜けOK'
+        msg += f'\| 【パーティ:{self.number}】'
         if self.aliance:
             msg += f'同盟 -> [パーティ{self.aliance.number}]({self.aliance.message.jump_url})'
         for player in self.members:
@@ -914,11 +918,11 @@ class FormationTopView(discord.ui.View):
             alartMessage = await interaction.channel.send(f'{interaction.user.mention}パーティメンバは新規パーティを生成できません')
             await alartMessage.delete(delay=5)
 
-async def createNewParty(user:discord.Member):
+async def createNewParty(user:discord.Member, free:bool=False):
     if len(ROBIN_GUILD.parties) == 0: newPartyNum = 1
     else: newPartyNum = max(map(lambda x:x.number, ROBIN_GUILD.parties)) + 1
     roles = {role for role in user.roles if role in ROBIN_GUILD.ROLES.keys()}
-    newParty = LightParty(newPartyNum, [Participant(user, roles)])
+    newParty = LightParty(newPartyNum, [Participant(user, roles)], free=free)
     newParty.message = await ROBIN_GUILD.PARTY_CH.send(newParty.getPartyMessage(ROBIN_GUILD.ROLES))
     newParty.thread = await newParty.message.create_thread(name=f'Party:{newParty.number}', auto_archive_duration=60)
     timeout = (ROBIN_GUILD.timeTable[0] - dt.now() + delta(minutes=60))
