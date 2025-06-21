@@ -913,7 +913,7 @@ class FormationTopView(discord.ui.View):
         print(f'{dt.now()} New Party button from {interaction.user.display_name}')
         await interaction.response.defer()
         if all({interaction.user.id not in map(lambda party:map(lambda member:member.id, party.members), ROBIN_GUILD.parties)}):
-            await createNewParty(interaction.user)
+            await createNewParty(interaction.user, free=True)
         else:
             alartMessage = await interaction.channel.send(f'{interaction.user.mention}パーティメンバは新規パーティを生成できません')
             await alartMessage.delete(delay=5)
