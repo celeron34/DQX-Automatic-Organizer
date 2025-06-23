@@ -1,5 +1,5 @@
 from __future__ import annotations # 必ず先頭に
-version = '1.0.9'
+version = '1.0.10'
 
 import discord
 from discord.ext import tasks, commands
@@ -117,7 +117,7 @@ class LightParty(Party):
     def getPartyMessage(self, guildRolesEmoji:dict[discord.Role,RoleInfo]) -> str:
         msg = ''
         if self.free:
-            msg += '## 途中抜けOK'
+            msg += '## 途中抜けOK\n'
         msg += f'\| 【パーティ:{self.number}】'
         if self.aliance:
             msg += f'同盟 -> [パーティ{self.aliance.number}]({self.aliance.message.jump_url})'
