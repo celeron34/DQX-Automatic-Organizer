@@ -223,11 +223,14 @@ class SpeedParty(Party):
 
     def getPartyMessage(self, guildRolesEmoji:dict[discord.Role,RoleInfo]) -> str:
         msg = f'\| <:FullParty:1345733070065500281> 高速パーティ:{self.number} <:FullParty:1345733070065500281>'
+        blockCount = 0
         for partyRole, members in self.members.items():
+            if blockCount == 4: msg += '\n- - - - - - - - - - - - -'
             for member in members:
                 msg += f'\n{guildRolesEmoji[partyRole].emoji} \| {member.mention}'
                 for memberRole in member.roles:
                     msg += str(guildRolesEmoji[memberRole].emoji)
+            blockCount += 1
         return msg
 
     def noneCount(self) -> int:
