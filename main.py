@@ -554,7 +554,8 @@ async def loop():
                 party.thread = await party.message.create_thread(name=f'SpeedParty:{party.number}', auto_archive_duration=60)
             elif isinstance(party, LightParty):
                 party.thread = await party.message.create_thread(name=f'Party:{party.number}', auto_archive_duration=60)
-                await party.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
+                if party.membersNum() < 4: # 4人以下の時はリアクション
+                    await party.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
                 party.threadControlMessage = await party.thread.send(view=PartyView(timeout=3600))
                 if party.aliance:
                     try:
