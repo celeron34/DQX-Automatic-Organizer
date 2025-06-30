@@ -1,5 +1,5 @@
 from __future__ import annotations # 必ず先頭に
-version = '1.0.13'
+version = '1.0.14'
 
 import discord
 from discord.ext import tasks, commands
@@ -1063,7 +1063,7 @@ async def f_get_participant_data(ctx:discord.ApplicationContext):
     if ctx.guild == None:
         await ctx.respond('目的のサーバー内でコマンドしてください')
         return
-    with open(f'../reactionLog/{ctx.interaction.guild.name}.csv', 'r') as f:
+    with open(f'reactionLog/{ctx.interaction.guild.name}.csv', 'r') as f:
         csvFile = discord.File(fp=f, filename=dt.now().strftime('participant_data_%y%m%d-%H%M%S.csv'))
     await ctx.respond(f'{ctx.interaction.user.mention}\nフォーマットは\n`年-月-日-時,ユーザーID,希望`\n希望は "l":殲滅 "h":高速', file=csvFile)
 
@@ -1072,7 +1072,7 @@ async def f_get_participant_name(ctx:discord.ApplicationContext):
     if ctx.guild == None:
         await ctx.respond('目的のサーバー内でコマンドしてください')
         return 
-    filename = f'../reactionLog/{ctx.interaction.guild.name}_nameList.csv'
+    filename = f'reactionLog/{ctx.interaction.guild.name}_nameList.csv'
     with open(filename, 'w') as f:
         async for member in ctx.interaction.guild.fetch_members():
             f.write(f'{member.id},{member.display_name}\n')
