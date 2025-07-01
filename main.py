@@ -1,5 +1,5 @@
 from __future__ import annotations # 必ず先頭に
-version = '1.0.14'
+version = '1.1.0'
 
 import discord
 from discord.ext import tasks, commands
@@ -597,7 +597,7 @@ async def loop():
                 print(t)
         msg = ROBIN_GUILD.timeTable[0].strftime('## 次回の異星は %H時 です\n%H時 > ')
         msg += ROBIN_GUILD.timeTable[1].strftime('%H時 > ')
-        msg += ROBIN_GUILD.timeTable[2].strftime('%H時 > [...](https://hiroba.dqx.jp/sc/tokoyami/)')
+        msg += ROBIN_GUILD.timeTable[2].strftime('%H時 > [...](<https://hiroba.dqx.jp/sc/tokoyami/>)')
         await ROBIN_GUILD.PARTY_CH.send(msg)
 
         if rebootScadule:
