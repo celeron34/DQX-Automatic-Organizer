@@ -787,7 +787,7 @@ class RoleManageView(discord.ui.View):
     async def card(self, button:discord.ui.Button, interaction:discord.Interaction):
         await interaction.response.defer()
         await self.roleManage(button.label, button.emoji, interaction.user)
-    @discord.ui.button(label='中継', emoji='<:relay:1345708117618458695>', row=2)
+    @discord.ui.button(label='中継', emoji='<:relay:1345708094251859999>', row=2)
     async def way(self, button:discord.ui.Button, interaction:discord.Interaction):
         await interaction.response.defer()
         await self.roleManage(button.label, button.emoji, interaction.user)
