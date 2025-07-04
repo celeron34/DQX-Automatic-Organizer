@@ -909,19 +909,19 @@ class PartyView(discord.ui.View):
             print(f'パーティメンバによるアクション')
             await party.joinMember(Guest())
     
-    @discord.ui.button(label='ゲスト削除')
-    async def removeGuest(self, button:discord.ui.Button, interaction:discord.Interaction):
-        print(f'{dt.now()} Guest remove button from {interaction.user.display_name}')
-        await interaction.response.defer()
-        party = searchLightParty(interaction.channel.starting_message, ROBIN_GUILD.parties)
-        if party == None:
-            print(f'非パーティメンバによるアクション')
-            msg = await interaction.channel.send(f'{interaction.user.mention}パーティメンバ以外は操作できません')
-            await msg.delete(delay=5)
-            return
-        if interaction.user in map(lambda x:x.user, party.members): # パーティメンバである
-            print('パーティメンバによるアクション')
-            await party.removeGuest()
+    # @discord.ui.button(label='ゲスト削除')
+    # async def removeGuest(self, button:discord.ui.Button, interaction:discord.Interaction):
+    #     print(f'{dt.now()} Guest remove button from {interaction.user.display_name}')
+    #     await interaction.response.defer()
+    #     party = searchLightParty(interaction.channel.starting_message, ROBIN_GUILD.parties)
+    #     if party == None:
+    #         print(f'非パーティメンバによるアクション')
+    #         msg = await interaction.channel.send(f'{interaction.user.mention}パーティメンバ以外は操作できません')
+    #         await msg.delete(delay=5)
+    #         return
+    #     if interaction.user in map(lambda x:x.user, party.members): # パーティメンバである
+    #         print('パーティメンバによるアクション')
+    #         await party.removeGuest()
 
 class FormationTopView(discord.ui.View):
     def __init__(self, *items, timeout = None, disable_on_timeout = True):
