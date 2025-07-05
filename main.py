@@ -33,6 +33,8 @@ client = commands.Bot(
 
 rebootScadule:bool|discord.TextChannel = False
 
+#region Classese
+
 class RoleInfo:
     def __init__(self, emoji:discord.Emoji, count:int):
         self.emoji:discord.Emoji = emoji
@@ -284,11 +286,13 @@ class Guild:
 
         # self.formation:Formation = None # パーティ編成クラス
 
+#endregion
+
 ROBIN_GUILD:Guild = None
 
 ##############################################################################################
 ##############################################################################################
-## イニシャライズ
+#region イニシャライズ
 @client.event
 async def on_ready():
     global ROBIN_GUILD
@@ -345,9 +349,11 @@ async def on_ready():
     await client.change_presence(activity=discord.CustomActivity(name=timeTable[0].strftime("Next:%H時"))) # なぜかここにないと動かない
     print(f'{dt.now()} on_ready END')
 
+#endregion
+
 ##############################################################################################
 ##############################################################################################
-## リアクション追加検知
+#region リアクション追加検知
 @client.event
 async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord.User):
     global ROBIN_GUILD
@@ -428,9 +434,11 @@ def searchLightParty(message:discord.Message, parties:list[Party]) -> LightParty
                 return party
     return None
 
+#endregion
+
 ##############################################################################################
 ##############################################################################################
-## リアクション削除検知
+#region リアクション削除検知
 @client.event
 async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|discord.User):
     global ROBIN_GUILD
@@ -462,17 +470,21 @@ async def reply_message(message:discord.Message, send:str, accept:bool):
     if accept: print(f'{message.guild.name} {message.author.display_name} command success: {message.content}')
     else: print(f'{message.guild.name} {message.author.display_name} command error: {message.content}')
 
+#endregion
+
 ##############################################################################################
 ##############################################################################################
-## メッセージ削除
+#region メッセージ削除
 @client.event
 async def on_message_delete(message):
     if message == ROBIN_GUILD.COMMAND_MSG:
         ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH)
 
+#endregion
+
 ##############################################################################################
 ##############################################################################################
-## 定期実行 パーティ編成
+#region 定期実行 パーティ編成
 @tasks.loop(seconds=60)
 async def loop():
     global ROBIN_GUILD
@@ -566,9 +578,8 @@ async def loop():
         try: # パーティ同盟チェック
             for party in ROBIN_GUILD.parties:
                 if isinstance(party, LightParty):
-                    joinAliance:bool = False
-                    joinAliance = await party.alianceCheck(ROBIN_GUILD.parties)
-                    if joinAliance:
+                    await party.alianceCheck(ROBIN_GUILD.parties)
+                    if party.aliance:
                         await party.message.edit(party.getPartyMessage(ROBIN_GUILD.ROLES))
         except Exception as e:
             printTraceback(e)
@@ -647,8 +658,10 @@ def markdownEsc(line:str):
         line = line.replace(char, '\\'+char)
     return line
 
+#endregion
+
 ##############################################################################################
-## パーティ編成アルゴリズム
+#region パーティ編成アルゴリズム
 def hispeedFormation(participants:list[Participant]) -> list[SpeedParty]:
     '''
     <h1>Parameter</h1>
@@ -753,8 +766,10 @@ def printTraceback(e):
         print(line)
     print('-------------------')
 
+#endregion
+
 ##############################################################################################
-## ビュー
+#region Views
 class RoleManageView(discord.ui.View):
     def __init__(self, *items, timeout = None, disable_on_timeout = True):
         super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
@@ -788,7 +803,7 @@ class RoleManageView(discord.ui.View):
     async def card(self, button:discord.ui.Button, interaction:discord.Interaction):
         await interaction.response.defer()
         await self.roleManage(button.label, button.emoji, interaction.user)
-    @discord.ui.button(label='中継', emoji='<:relay:1345708117618458695>', row=2)
+    @discord.ui.button(label='中継', emoji='<:relay:1345708094251859999>', row=2)
     async def way(self, button:discord.ui.Button, interaction:discord.Interaction):
         await interaction.response.defer()
         await self.roleManage(button.label, button.emoji, interaction.user)
@@ -894,19 +909,19 @@ class PartyView(discord.ui.View):
             print(f'パーティメンバによるアクション')
             await party.joinMember(Guest())
     
-    @discord.ui.button(label='ゲスト削除')
-    async def removeGuest(self, button:discord.ui.Button, interaction:discord.Interaction):
-        print(f'{dt.now()} Guest remove button from {interaction.user.display_name}')
-        await interaction.response.defer()
-        party = searchLightParty(interaction.channel.starting_message, ROBIN_GUILD.parties)
-        if party == None:
-            print(f'非パーティメンバによるアクション')
-            msg = await interaction.channel.send(f'{interaction.user.mention}パーティメンバ以外は操作できません')
-            await msg.delete(delay=5)
-            return
-        if interaction.user in map(lambda x:x.user, party.members): # パーティメンバである
-            print('パーティメンバによるアクション')
-            await party.removeGuest()
+    # @discord.ui.button(label='ゲスト削除')
+    # async def removeGuest(self, button:discord.ui.Button, interaction:discord.Interaction):
+    #     print(f'{dt.now()} Guest remove button from {interaction.user.display_name}')
+    #     await interaction.response.defer()
+    #     party = searchLightParty(interaction.channel.starting_message, ROBIN_GUILD.parties)
+    #     if party == None:
+    #         print(f'非パーティメンバによるアクション')
+    #         msg = await interaction.channel.send(f'{interaction.user.mention}パーティメンバ以外は操作できません')
+    #         await msg.delete(delay=5)
+    #         return
+    #     if interaction.user in map(lambda x:x.user, party.members): # パーティメンバである
+    #         print('パーティメンバによるアクション')
+    #         await party.removeGuest()
 
 class FormationTopView(discord.ui.View):
     def __init__(self, *items, timeout = None, disable_on_timeout = True):
@@ -981,8 +996,10 @@ def isPartyMember(user:discord.Member) -> bool:
             return False
     return True
 
+#endregion
+
 ##############################################################################################
-## Emoji 関数
+#region Emoji 関数
 def emoji2role(emoji: discord.partial_emoji.PartialEmoji | discord.Emoji | str) -> list[discord.Role] | discord.Role | None:
     roles = [r for r, info in ROBIN_GUILD.ROLES.items() if equalEmoji(emoji, info.emoji)]
     if len(roles) == 1: return roles[0]
@@ -1013,8 +1030,10 @@ def equalEmoji(emoji1: discord.partial_emoji.PartialEmoji | discord.Emoji | str,
 
     return emoji1_id == emoji2_id
 
+#endregion
+
 ##############################################################################################
-## スラッシュコマンド
+#region スラッシュコマンド
 @client.slash_command(name='f-formation', description='タイムテーブルの割り込み')
 async def f_reclute(ctx:discord.ApplicationContext):
     if ctx.guild == None:
@@ -1086,7 +1105,10 @@ async def f_reboot(ctx:discord.ApplicationContext|None = None):
     await client.close()  # ボットを終了
     exit()
 
+#endregion
+
 ##############################################################################################
+#region main
 if __name__ == '__main__':
     print(f'##################################################################################')
     print(f'{dt.now()} スクリプト起動 Ver.{version}')
