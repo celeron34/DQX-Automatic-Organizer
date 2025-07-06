@@ -1084,7 +1084,7 @@ async def f_get_participant_data(ctx:discord.ApplicationContext):
         return
     with open(f'reactionLog/{ctx.interaction.guild.name}.csv', 'r') as f:
         csvFile = discord.File(fp=f, filename=dt.now().strftime('participant_data_%y%m%d-%H%M%S.csv'))
-    await ctx.respond(f'{ctx.interaction.user.mention}\nフォーマットは\n`年-月-日-時,ユーザーID,希望`\n希望は "l":殲滅 "h":高速', file=csvFile)
+    await ctx.respond(f'{ctx.interaction.user.mention}\nフォーマットは\n`年-月-日-時,ユーザーID,希望`', file=csvFile)
 
 @client.slash_command(name='f-get-participant-name', description='サーバーメンバのIDと現在の表示名の対応をcsv形式で返します')
 async def f_get_participant_name(ctx:discord.ApplicationContext):
@@ -1094,7 +1094,7 @@ async def f_get_participant_name(ctx:discord.ApplicationContext):
     filename = f'reactionLog/{ctx.interaction.guild.name}_nameList.csv'
     with open(filename, 'w') as f:
         async for member in ctx.interaction.guild.fetch_members():
-            f.write(f'{member.id},{member.display_name}\n')
+            f.write(f'{member.id},{member.display_name},{member.joined_at}\n')
     with open(filename, 'r') as f:
         csvFile = discord.File(fp=f, filename=dt.now().strftime('participant_name_%y%m%d-%H%M%S.csv'))
     await ctx.respond(f'{ctx.interaction.user.mention}\nフォーマットは\n`ユーザーID,表示名`', file=csvFile)
