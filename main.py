@@ -1,5 +1,5 @@
 from __future__ import annotations # 必ず先頭に
-version = '1.1.3'
+version = '1.1.6'
 
 import discord
 from discord.ext import tasks, commands
@@ -227,7 +227,7 @@ class SpeedParty(Party):
         msg = f'\| <:FullParty:1345733070065500281> 高速パーティ:{self.number} <:FullParty:1345733070065500281>'
         blockCount = 0
         for partyRole, members in self.members.items():
-            if blockCount == 4: msg += '\n- - - - - - - - - - - - -'
+            if blockCount == 4: msg += '\n-# = = = = = = = = = = = = = ='
             for member in members:
                 msg += f'\n{guildRolesEmoji[partyRole].emoji} \| {member.mention}'
                 for memberRole in member.roles:
@@ -1094,10 +1094,10 @@ async def f_get_participant_name(ctx:discord.ApplicationContext):
     filename = f'reactionLog/{ctx.interaction.guild.name}_nameList.csv'
     with open(filename, 'w') as f:
         async for member in ctx.interaction.guild.fetch_members():
-            f.write(f'{member.id},{member.display_name},{member.joined_at}\n')
+            f.write(f'{member.id},{member.name},{member.display_name},{member.joined_at}\n')
     with open(filename, 'r') as f:
         csvFile = discord.File(fp=f, filename=dt.now().strftime('participant_name_%y%m%d-%H%M%S.csv'))
-    await ctx.respond(f'{ctx.interaction.user.mention}\nフォーマットは\n`ユーザーID,表示名`', file=csvFile)
+    await ctx.respond(f'{ctx.interaction.user.mention}\nフォーマットは\n`ユーザーID,ユーザー名,表示名,加入時期`', file=csvFile)
 
 async def f_reboot(ctx:discord.ApplicationContext|None = None):
     if ctx: await ctx.respond('再起動します')
