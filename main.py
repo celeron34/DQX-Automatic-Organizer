@@ -150,10 +150,12 @@ class LightParty(Party):
         print(f'Remove join request target:{target}')
         if isinstance(target, discord.Member):
             for party in ROBIN_GUILD.parties:
+                # LightPartyクラス以外をはじく
                 if not isinstance(party, LightParty): continue
                 for message, member in party.joins.items():
                     if member == target:
                         if self != party:
+                            # パーティ以外であれば申請取り下げ通知
                             await message.edit(f'@here\n{target.display_name} が参加取り下げ', view=DummyApproveView())
                         del party.joins[message]
                         break
@@ -174,15 +176,17 @@ class LightParty(Party):
         print(f'PartyNumber:{self.number} JoinMember:{participant.display_name} PartyMemberNumber:{self.membersNum()} Aliance:{self.aliance}')
         if isinstance(participant, Participant): # メンバならスレッドに入れる
             await self.thread.add_user(participant.user)
+            await self.removeJoinRequest(participant.user)
         await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
         await self.alianceCheck(ROBIN_GUILD.parties)
         if self.membersNum() >= 4:
+            await self.removeJoinRequest(self)
             await self.message.clear_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
         await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
         return True
     
     async def removeMember(self, member:Participant|discord.Member|Guest) -> bool:
-        if isinstance(member, Participant): member = member.user # memberであればMemberクラスにする
+        if isinstance(member, Participant): member = member.user # ParticipantであればMemberクラスにする
         if member not in map(lambda x:x.user, self.members): return False
         for participant in self.members[-1::-1]:
             if participant.user == member:
@@ -453,14 +457,14 @@ async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|disc
     #         return
     
     # 参加申請取り消し
-    # if ROBIN_GUILD.parties != None:
-    #     if reaction.message in map(lambda x:x.message, ROBIN_GUILD.parties) and reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
-    #         party:LightParty = searchLightParty(reaction.message, ROBIN_GUILD.parties)
-    #         for delMessage, member in party.joins.items():
-    #             if user == member:
-    #                 del party.joins[delMessage]
-    #                 await delMessage.edit(f'@here {user.display_name} が加入申請を取り下げ', view=None)
-    #                 break
+    if ROBIN_GUILD.parties != None:
+        if reaction.message in map(lambda x:x.message, ROBIN_GUILD.parties) and reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
+            party:LightParty = searchLightParty(reaction.message, ROBIN_GUILD.parties)
+            for delMessage, member in party.joins.items():
+                if user == member:
+                    del party.joins[delMessage]
+                    await delMessage.edit(f'@here {user.display_name} が加入申請を取り下げ', view=None)
+                    break
 
 ##############################################################################################
 ## 
@@ -845,7 +849,7 @@ class ApproveView(discord.ui.View):
                     await p.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember)
                 await party.joinMember(Participant(joinMember, set(role for role in joinMember.roles if role in ROBIN_GUILD.ROLES.keys())))
                 await party.removeJoinRequest(joinMember)
-                await thread.starting_message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember) # リアクション処理
+                # await thread.starting_message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember) # リアクション処理
             else:
                 print('パーティメンバ以外による承認')
                 await interaction.response.defer()
