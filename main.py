@@ -1,5 +1,5 @@
 from __future__ import annotations # 必ず先頭に
-version = '1.1.8'
+version = '1.1.9'
 
 import discord
 from discord.ext import tasks, commands
