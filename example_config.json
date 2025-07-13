@@ -1,0 +1,16 @@
+{
+    "botToken":"Bot Token",
+    "guilds":[{
+        "guild_id":111,
+        "category_id":111,
+        "role_channel":111,
+        "role_emoji":[
+            {"role":111, "emoji":111},
+            {"role":111, "emoji":111},
+            {"role":111, "emoji":111},
+            {"role":111, "emoji":111},
+            {"role":111, "emoji":111},
+            {"role":111, "emoji":111}
+        ]
+    }]
+}
