@@ -55,8 +55,8 @@ class Participant(PartyMember): # メンバと可能ロール
 class Guest(PartyMember): # Party class のためのダミー
     def __init__(self):
         super().__init__(user=None, roles=set())
-        # self.user = None
-        # self.roles = set()
+        self.user = self
+        self.roles = set()
         self.mention = 'ゲスト'
         self.id = -1
         self.display_name = 'ゲスト'
