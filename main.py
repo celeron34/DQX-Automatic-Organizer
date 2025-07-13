@@ -1,5 +1,5 @@
 from __future__ import annotations # 必ず先頭に
-version = '1.1.10'
+version = '1.1.10b'
 
 import discord
 from discord.ext import tasks, commands
@@ -561,7 +561,10 @@ async def loop():
                                             view=FormationTopView(timeout=3600))
             
             for party in ROBIN_GUILD.parties:
-                party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
+                if isinstance(party, LightParty):
+                    party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES), view=PartyView)
+                else:
+                    party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
 
         print(f'{dt.now()} Formation END')
 
