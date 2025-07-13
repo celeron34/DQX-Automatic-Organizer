@@ -1,5 +1,5 @@
 from __future__ import annotations # 必ず先頭に
-version = '1.1.11b'
+version = '1.1.12b'
 
 import discord
 from discord.ext import tasks, commands
@@ -731,10 +731,10 @@ def addHispeedParty(parties:list[SpeedParty], participant:Participant, roles:set
         return False
     
 def lowspeedFormation(participants:list[Participant], partyIndex:int) -> list[LightParty]:
-    partiesNum = len(participants) // 4 # パーティ数
-    partyNum = roundUp(len(participants) / partiesNum) # パーティ当たりの人数
+    partiesNum = roundUp(len(participants) / 4) # Number of パーティ
+    partyNum = len(participants) // partiesNum # パーティ当たりの人数
     parties_num = [partyNum] * partiesNum # パーティ当たりの人数をパーティ数分List[int]
-    for i in range(len(participants) % 4): # あまり人数分足す
+    for i in range(len(participants) % partiesNum): # あまり人数分足す
         partiesNum[i] += 1
 
     # パーティ割り振り人数確定
