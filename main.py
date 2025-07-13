@@ -723,38 +723,30 @@ def addHispeedParty(parties:list[SpeedParty], participant:Participant, roles:set
     else: # どのパーティでも交代できない
         return False
     
-def lowspeedFormation(participants:list[Participant], partyNum:int) -> list[LightParty]:
-    parties_num:list[int] = [4 for _ in range(len(participants) // 4)]
-    if len(participants) % 4 > 0:
-        parties_num.append(len(participants) % 4)
-
-    # パーティメンバ数例外処理
-    if len(parties_num) >= 3: # 3パーティ以上
-        if sum(i for i in parties_num[-3:]) == 9:
-            parties_num[-1] = 3
-            parties_num[-2] = 3
-            parties_num[-3] = 3
-    elif len(parties_num) >= 2: # 2パーティ
-        parties2tailSum = sum(i for i in parties_num[-2:])
-        if parties2tailSum == 5:
-            parties_num[-1] = 2
-            parties_num[-2] = 3
-        elif parties2tailSum == 6:
-            parties_num[-1] = 3
-            parties_num[-2] = 3
+def lowspeedFormation(participants:list[Participant], partyIndex:int) -> list[LightParty]:
+    partiesNum = len(participants) // 4 # パーティ数
+    partyNum = roundUp(len(participants) / partiesNum) # パーティ当たりの人数
+    parties_num = [partyNum] * partiesNum # パーティ当たりの人数をパーティ数分List[int]
+    for i in range(len(participants) % 4): # あまり人数分足す
+        partiesNum[i] += 1
 
     # パーティ割り振り人数確定
     # メンバー振り分け
     parties:list[LightParty] = []
     p = 0
     for n in parties_num:
-        partyNum += 1
-        parties.append(LightParty(partyNum, []))
+        partyIndex += 1
+        parties.append(LightParty(partyIndex, []))
         for _ in range(n):
             parties[-1].addMember(participants[p])
             p += 1
 
     return parties
+
+def roundUp(value:float):
+    roundValue = round(value)
+    if value - roundValue > 0: roundValue += 1
+    return roundValue
 
 ##############################################################################################
 ## エラーキャッチ
