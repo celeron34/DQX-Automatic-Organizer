@@ -662,7 +662,7 @@ async def getTimetable(updateStatus:bool=True) -> list[dt]:
             timeTable.append(t)
     if updateStatus:
         await client.change_presence(activity=discord.CustomActivity(name=timeTable[0].strftime("Next:%H時")), status=discord.Status.online)
-    print(f'{dt.now()} Timetable was got')
+    print(f'{dt.now()} Timetable was get')
     return timeTable
 
 def markdownEsc(line:str):
