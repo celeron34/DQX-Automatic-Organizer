@@ -1,5 +1,5 @@
 from __future__ import annotations # 必ず先頭に
-version = '1.1.12b'
+version = '1.1.13b'
 
 import discord
 from discord.ext import tasks, commands
@@ -562,7 +562,10 @@ async def loop():
             
             for party in ROBIN_GUILD.parties:
                 if isinstance(party, LightParty):
-                    party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES), view=PartyView)
+                    try:  party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES), view=PartyView())
+                    except Exception as e:
+                        printTraceback(e)
+                        party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
                 else:
                     party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
 
