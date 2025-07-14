@@ -562,7 +562,7 @@ async def loop():
             
             for party in ROBIN_GUILD.parties:
                 if isinstance(party, LightParty):
-                    try:  party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES), view=PartyView())
+                    try:  party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES), view=PartyView(timeout=3600))
                     except Exception as e:
                         printTraceback(e)
                         party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
