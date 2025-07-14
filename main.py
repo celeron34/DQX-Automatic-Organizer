@@ -734,6 +734,7 @@ def addHispeedParty(parties:list[SpeedParty], participant:Participant, roles:set
         return False
     
 def lowspeedFormation(participants:list[Participant], partyIndex:int) -> list[LightParty]:
+    if len(participants) == 0: return []
     partiesNum = roundUp(len(participants) / 4) # Number of パーティ
     partyNum = len(participants) // partiesNum # パーティ当たりの人数
     parties_num = [partyNum] * partiesNum # パーティ当たりの人数をパーティ数分List[int]
