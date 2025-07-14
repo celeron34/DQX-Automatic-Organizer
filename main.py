@@ -654,7 +654,7 @@ async def getTimetable(updateStatus:bool=True) -> list[dt]:
     # タイムテーブルを取りに行く
     await client.change_presence(activity=discord.CustomActivity(name='タイムスケジュール取得中'), status=discord.Status.dnd)
     print(f'{dt.now()} getting Timetable')
-    timeTable = []
+    timeTable:list[dt] = []
     now30 = dt.now() + delta(minutes=30)
     for t in getTable(argv[1], argv[2]):
         # 通過したものは追加しない
