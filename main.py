@@ -739,7 +739,7 @@ def lowspeedFormation(participants:list[Participant], partyIndex:int) -> list[Li
     partyNum = len(participants) // partiesNum # パーティ当たりの人数
     parties_num = [partyNum] * partiesNum # パーティ当たりの人数をパーティ数分List[int]
     for i in range(len(participants) % partiesNum): # あまり人数分足す
-        partiesNum[i] += 1
+        parties_num[i] += 1
 
     # パーティ割り振り人数確定
     # メンバー振り分け
