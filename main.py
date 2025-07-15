@@ -1,5 +1,9 @@
 from __future__ import annotations # 必ず先頭に
+<<<<<<< HEAD
 version = '1.1.14b'
+=======
+version = '1.1.10'
+>>>>>>> parent of 04fa629 (add: 外側にPartyView)
 
 import discord
 from discord.ext import tasks, commands
@@ -561,6 +565,7 @@ async def loop():
                                             view=FormationTopView(timeout=3600))
             
             for party in ROBIN_GUILD.parties:
+<<<<<<< HEAD
                 if isinstance(party, LightParty):
                     try:  party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES), view=PartyView(timeout=3600))
                     except Exception as e:
@@ -568,6 +573,9 @@ async def loop():
                         party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
                 else:
                     party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
+=======
+                party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
+>>>>>>> parent of 04fa629 (add: 外側にPartyView)
 
         print(f'{dt.now()} Formation END')
 
