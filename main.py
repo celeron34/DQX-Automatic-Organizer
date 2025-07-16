@@ -13,10 +13,10 @@ from typing import Any
 from time import perf_counter
 from random import shuffle
 from sys import argv, exc_info, executable, exit
-from subprocess import Popen
+from subprocess import Popen, check_output
 from traceback import extract_tb, format_list
 from re import sub, match
-from os import getcwd
+from os import getcwd, path
 
 # インテント
 intents = discord.Intents.all()
@@ -315,6 +315,16 @@ async def on_ready():
     ROBIN_GUILD.PARTY_LOG     = client.get_channel(1353638340456484916)
     ROBIN_GUILD.DEV_CH        = client.get_channel(1365285325810962534)
     ROBIN_GUILD.COMMAND_CH    = client.get_channel(1249294452149715016)
+
+    try:
+        # コミットハッシュ取得
+        script_dir = path.dirname(path.abspath(__file__)) # パス
+        git_root = check_output(['git', '-C', script_dir, 'rev-parse', '--show-toplevel'], text=True).strip()
+        commit_hash = check_output(['git', '-C', git_root, 'rev-parse', 'HEAD'], text=True).strip()
+        ROBIN_GUILD.DEV_CH.send(f'commit has: {commit_hash}')
+    except Exception as e:
+        printTraceback(e)
+
 
     # 絵文字ゲット
     ROBIN_GUILD.RECLUTING_EMOJI =  client.get_emoji(1345708506111545375)
@@ -1112,7 +1122,7 @@ async def f_reboot(ctx:discord.ApplicationContext|None = None):
 #region main
 if __name__ == '__main__':
     print(f'##################################################################################')
-    print(f'{dt.now()} スクリプト起動 Ver.{version}')
+    print(f'{dt.now()} スクリプト起動')
     # print(f"Intents.members: {client.intents.members}")  # True ならOK
     try:
         with open('../token.csv', 'r', encoding='utf-8') as f:
