@@ -687,7 +687,7 @@ def joinLeaveMembers(guild:discord.Guild, month:delta, exclusionRoles:set[discor
         if line == '': continue
         element = line.strip().split(',')
         date = element[0].split('-')
-        if dt(date[0], date[1], date[2], date[3]) < dt.now() - month: break
+        if dt('20' + date[0], date[1], date[2], date[3]) < dt.now() - month: break
         targetMember = guild.get_member(element[0])
         if targetMember.joined_at < dt.now() - month: continue
         if targetMember.roles & exclusionRoles: continue
@@ -1133,7 +1133,7 @@ async def f_reboot(ctx:discord.ApplicationContext|None = None):
     await client.close()  # ボットを終了
     exit()
 
-@client.slash_command(name='f-get-leave-month', desctiption='任意の月間不参加者抽出')
+@client.slash_command(name='f-get-leave-month', description='任意の月間不参加者抽出')
 async def f_get_leave_month(ctx:discord.ApplicationContext, month:int):
     leaveMembers = joinLeaveMembers(ctx.interaction.guild, delta(month=month), {1246661252147576842, 1246661367658840178, 1246989946263306302, 1393529338053267557, 1362429512909979778})
     filename = f'cash/{ctx.interaction.guild.name}.csv'
