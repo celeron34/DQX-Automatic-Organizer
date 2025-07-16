@@ -321,7 +321,7 @@ async def on_ready():
         script_dir = path.dirname(path.abspath(__file__)) # パス
         git_root = check_output(['git', '-C', script_dir, 'rev-parse', '--show-toplevel'], text=True).strip()
         commit_hash = check_output(['git', '-C', git_root, 'rev-parse', 'HEAD'], text=True).strip()
-        ROBIN_GUILD.DEV_CH.send(f'commit has: {commit_hash}')
+        await ROBIN_GUILD.DEV_CH.send(f'commit has: {commit_hash}')
     except Exception as e:
         printTraceback(e)
 
