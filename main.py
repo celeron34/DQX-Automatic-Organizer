@@ -1123,8 +1123,7 @@ async def f_get_participant_name(ctx:discord.ApplicationContext):
     with open(filename, 'w') as f:
         async for member in ctx.interaction.guild.fetch_members():
             f.write(f'{member.id},{member.name},{member.display_name},{member.joined_at}\n')
-    with open(filename, 'r') as f:
-        csvFile = discord.File(fp=f, filename=dt.now().strftime('participant_name_%y%m%d-%H%M%S.csv'))
+    csvFile = discord.File(filename, filename=dt.now().strftime('participant_name_%y%m%d-%H%M%S.csv'))
     await ctx.respond(f'{ctx.interaction.user.mention}\nフォーマットは\n`ユーザーID,ユーザー名,表示名,加入時期`', file=csvFile)
 
 async def f_reboot(ctx:discord.ApplicationContext|None = None):
@@ -1136,12 +1135,11 @@ async def f_reboot(ctx:discord.ApplicationContext|None = None):
 @client.slash_command(name='f-get-leave-month', description='任意の月間不参加者抽出')
 async def f_get_leave_month(ctx:discord.ApplicationContext, month:int):
     leaveMembers = joinLeaveMembers(ctx.interaction.guild, delta(month=month), {1246661252147576842, 1246661367658840178, 1246989946263306302, 1393529338053267557, 1362429512909979778})
-    filename = f'cash/{ctx.interaction.guild.name}.csv'
+    filename = f'cache/{ctx.interaction.guild.name}.csv'
     with open(filename, 'w') as f:
         for member in leaveMembers:
             f.write(f'{member.id},{member.display_name}\n')
-    with open(filename, 'r') as f:
-        csvFile = discord.File(fp=f, filename=dt.now().strftime('leaveMembers_%y%m%d-%H%M%S.csv'))
+    csvFile = discord.File(filename, filename=dt.now().strftime('leaveMembers_%y%m%d-%H%M%S.csv'))
     await ctx.respond(f'{ctx.interaction.user.mention}\nフォーマットは\n`ID,表示名`', file=csvFile)
     
 #endregion
