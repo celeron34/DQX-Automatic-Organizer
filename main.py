@@ -650,6 +650,9 @@ async def loop():
 
 ##############################################################################################
 ##############################################################################################
+#endregion
+
+#region 関数もろもろ
 async def command_message(textch:discord.TextChannel) -> discord.Message:
     msg = await textch.send(content=f'## 追加・削除したいロールをタップ', view=RoleManageView())
     return msg
@@ -676,6 +679,20 @@ def markdownEsc(line:str):
         line = line.replace(char, '\\'+char)
     return line
 
+def joinLeaveMembers(guild:discord.Guild, month:delta, exclusionRoles:set[discord.Role]={}):
+    leaveMembers:set[discord.Member] = set(guild.members)
+    with open(f'reclutionLog/{guild.name}.csv') as f:
+        lines = f.readlines()
+    for line in lines[-1::-1]:
+        if line == '': continue
+        element = line.strip().split(',')
+        date = element[0].split('-')
+        if dt(date[0], date[1], date[2], date[3]) < dt.now() - month: break
+        targetMember = guild.get_member(element[0])
+        if targetMember.joined_at < dt.now() - month: continue
+        if targetMember.roles & exclusionRoles: continue
+        leaveMembers = leaveMembers - targetMember
+    return leaveMembers
 #endregion
 
 ##############################################################################################
