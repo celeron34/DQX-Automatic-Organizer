@@ -1135,7 +1135,7 @@ async def f_reboot(ctx:discord.ApplicationContext|None = None):
 
 @client.slash_command(name='f-get-leave-month', desctiption='任意の月間不参加者抽出')
 async def f_get_leave_month(ctx:discord.ApplicationContext, month:int):
-    leaveMembers = joinLeaveMembers(ctx.guild, month, {1246661252147576842, 1246661367658840178, 1246989946263306302, 1393529338053267557, 1362429512909979778})
+    leaveMembers = joinLeaveMembers(ctx.interaction.guild, delta(month=month), {1246661252147576842, 1246661367658840178, 1246989946263306302, 1393529338053267557, 1362429512909979778})
     filename = f'cash/{ctx.interaction.guild.name}.csv'
     with open(filename, 'w') as f:
         for member in leaveMembers:
