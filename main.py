@@ -559,9 +559,8 @@ async def loop():
             # 編成
             shuffle(participants)
             print(f'shaffled: {[participant.display_name for participant in participants]}')
-            if participantNum >= 10:
-                for party in hispeedFormation(participants):
-                    ROBIN_GUILD.parties.append(party)
+            for party in hispeedFormation(participants):
+                ROBIN_GUILD.parties.append(party)
             for party in lowspeedFormation(participants, len(ROBIN_GUILD.parties)):
                 ROBIN_GUILD.parties.append(party)
             print(f'formation algorithm time: {dt.now() - formationStartTime}')
