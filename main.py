@@ -526,7 +526,7 @@ async def loop():
         # except Exception as e:
         #     printTraceback(e)
     
-    if now == ROBIN_GUILD.timeTable[0] - delta(minutes=15):
+    elif now == ROBIN_GUILD.timeTable[0] - delta(minutes=15):
         await ROBIN_GUILD.PARTY_CH.send(f'パーティ編成まで残り5分 {ROBIN_GUILD.reclutingMessage.jump_url}')
 
     ######################################################
