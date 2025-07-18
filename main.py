@@ -1102,6 +1102,8 @@ async def f_stop(ctx:discord.ApplicationContext):
 
 @client.slash_command(name='f-rand', description='編成員Fが整数ランダムを生成')
 async def f_rand(ctx:discord.ApplicationContext, min:int, max:int):
+    min = int(min)
+    max = int(max)
     await ctx.respond(f'{min}-{max} > {randint(min,max)}')
 
 @client.slash_command(name='f-get-participant-data', description='これまでの参加データをcsv形式で返します')
@@ -1134,7 +1136,7 @@ async def f_reboot(ctx:discord.ApplicationContext|None = None):
 
 @client.slash_command(name='f-get-leave-month', description='任意の月間不参加者抽出')
 async def f_get_leave_month(ctx:discord.ApplicationContext, month:int):
-    leaveMembers = joinLeaveMembers(ctx.interaction.guild, delta(month=month), {1246661252147576842, 1246661367658840178, 1246989946263306302, 1393529338053267557, 1362429512909979778})
+    leaveMembers = joinLeaveMembers(ctx.interaction.guild, delta(month=int(month)), {1246661252147576842, 1246661367658840178, 1246989946263306302, 1393529338053267557, 1362429512909979778})
     filename = f'cash/{ctx.interaction.guild.name}.csv'
     with open(filename, 'w') as f:
         for member in leaveMembers:
