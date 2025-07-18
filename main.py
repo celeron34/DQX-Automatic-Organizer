@@ -638,6 +638,15 @@ async def loop():
         ROBIN_GUILD.parties = None
         ROBIN_GUILD.reclutingMessage = None
         
+    if (now + delta(minutes=1)).month == now.month + 1: # 1分後が来月 -> 明日が1日の23:59
+        members = joinLeaveMembers(ROBIN_GUILD.GUILD, 3, ROBIN_GUILD.GUILD.get_role(1246989946263306302))
+        msg = '3か月不参加メンバ:'
+        if members:
+            for member in members:
+                msg += f' {member.mention}'
+        else:
+            msg += '（なし）'
+        await ROBIN_GUILD.DEV_CH
 
     ######################################################
     #
