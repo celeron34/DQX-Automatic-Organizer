@@ -678,7 +678,7 @@ def markdownEsc(line:str):
         line = line.replace(char, '\\'+char)
     return line
 
-def joinLeaveMembers(guild:discord.Guild, month:delta, exclusionRoles:set[discord.Role]={}):
+def joinLeaveMembers(guild:discord.Guild, month:delta, exclusionRole:discord.Role|None=None):
     leaveMembers:set[discord.Member] = set(guild.members)
     with open(f'reclutionLog/{guild.name}.csv') as f:
         lines = f.readlines()
@@ -688,8 +688,9 @@ def joinLeaveMembers(guild:discord.Guild, month:delta, exclusionRoles:set[discor
         date = element[0].split('-')
         if dt('20' + date[0], date[1], date[2], date[3]) < dt.now() - month: break
         targetMember = guild.get_member(element[0])
+        if not isinstance(targetMember, discord.Member): continue
         if targetMember.joined_at < dt.now() - month: continue
-        if targetMember.roles & exclusionRoles: continue
+        if any(map(lambda role:role.position >= exclusionRole.position, targetMember.roles)): continue
         leaveMembers = leaveMembers - targetMember
     return leaveMembers
 #endregion
@@ -1136,7 +1137,8 @@ async def f_reboot(ctx:discord.ApplicationContext|None = None):
 
 @client.slash_command(name='f-get-leave-month', description='任意の月間不参加者抽出')
 async def f_get_leave_month(ctx:discord.ApplicationContext, month:int):
-    leaveMembers = joinLeaveMembers(ctx.interaction.guild, delta(month=int(month)), {1246661252147576842, 1246661367658840178, 1246989946263306302, 1393529338053267557, 1362429512909979778})
+    targetGuild = ctx.interaction.guild
+    leaveMembers = joinLeaveMembers(targetGuild, delta(month=int(month)), targetGuild.get_role(1393529338053267557))
     filename = f'cash/{ctx.interaction.guild.name}.csv'
     with open(filename, 'w') as f:
         for member in leaveMembers:
