@@ -559,15 +559,14 @@ async def loop():
             # 編成
             shuffle(participants)
             print(f'shaffled: {[participant.display_name for participant in participants]}')
-            if participantNum >= 10:
-                for party in hispeedFormation(participants):
-                    ROBIN_GUILD.parties.append(party)
+            for party in hispeedFormation(participants):
+                ROBIN_GUILD.parties.append(party)
             for party in lowspeedFormation(participants, len(ROBIN_GUILD.parties)):
                 ROBIN_GUILD.parties.append(party)
             print(f'formation algorithm time: {dt.now() - formationStartTime}')
 
             # パーティ通知メッセージ
-            await ROBIN_GUILD.PARTY_CH.send(ROBIN_GUILD.timeTable[0].strftime('## %H時のパーティ編成が完了しました\n参加者は ___**サーバー3**___ へ\n原則、一番上がリーダーです' + '' if participantNum != 8 else '\n参加者が8人ですので\n## 殲滅固定（カンダタを倒す）同盟です\n参加者は ___**サーバー3**___ へ'), \
+            await ROBIN_GUILD.PARTY_CH.send(ROBIN_GUILD.timeTable[0].strftime('## %H時のパーティ編成が完了しました\n参加者は ___**サーバー3**___ へ\n原則、一番上がリーダーです'), \
                                             view=FormationTopView(timeout=3600))
             
             for party in ROBIN_GUILD.parties:
@@ -679,7 +678,7 @@ def markdownEsc(line:str):
         line = line.replace(char, '\\'+char)
     return line
 
-def joinLeaveMembers(guild:discord.Guild, month:delta, exclusionRoles:set[discord.Role]={}):
+def joinLeaveMembers(guild:discord.Guild, month:delta, exclusionRole:discord.Role|None=None):
     leaveMembers:set[discord.Member] = set(guild.members)
     with open(f'reclutionLog/{guild.name}.csv') as f:
         lines = f.readlines()
@@ -689,8 +688,9 @@ def joinLeaveMembers(guild:discord.Guild, month:delta, exclusionRoles:set[discor
         date = element[0].split('-')
         if dt('20' + date[0], date[1], date[2], date[3]) < dt.now() - month: break
         targetMember = guild.get_member(element[0])
+        if not isinstance(targetMember, discord.Member): continue
         if targetMember.joined_at < dt.now() - month: continue
-        if targetMember.roles & exclusionRoles: continue
+        if any(map(lambda role:role.position >= exclusionRole.position, targetMember.roles)): continue
         leaveMembers = leaveMembers - targetMember
     return leaveMembers
 #endregion
@@ -1103,6 +1103,8 @@ async def f_stop(ctx:discord.ApplicationContext):
 
 @client.slash_command(name='f-rand', description='編成員Fが整数ランダムを生成')
 async def f_rand(ctx:discord.ApplicationContext, min:int, max:int):
+    min = int(min)
+    max = int(max)
     await ctx.respond(f'{min}-{max} > {randint(min,max)}')
 
 @client.slash_command(name='f-get-participant-data', description='これまでの参加データをcsv形式で返します')
