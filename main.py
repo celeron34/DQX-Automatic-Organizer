@@ -549,6 +549,12 @@ async def loop():
                         participant = Participant(user, roles)
                         participants.append(participant)
             participantNum = len(participants)
+            
+            
+            print(f'{dt.now()} Add Log')
+            with open(f'reactionLog/{ROBIN_GUILD.GUILD.name}.csv', 'a', encoding='utf8') as f:
+                for participant in participants:
+                    f.write(f"{ROBIN_GUILD.timeTable[0].strftime('%y-%m-%d-%H')},{participant.id}\n")
 
             print('participants')
             print([participant.display_name for participant in participants])
@@ -601,10 +607,6 @@ async def loop():
         except Exception as e:
             printTraceback(e)
 
-        print(f'{dt.now()} Add Log')
-        with open(f'reactionLog/{ROBIN_GUILD.GUILD.name}.csv', 'a', encoding='utf8') as f:
-            for participant in participants:
-                f.write(f"{ROBIN_GUILD.timeTable[0].strftime('%y-%m-%d-%H')},{participant.id}\n")
         print('#==================================================================#')
 
         # ROBIN_GUILD.reclutingMessage = None
