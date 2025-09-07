@@ -146,18 +146,21 @@ class LightParty(Party):
         requestMessage = await self.thread.send(f'@here {member.display_name} から加入申請', view=ApproveView(timeout=600))
         self.joins[requestMessage] = member
 
-    async def removeJoinRequest(self, target:discord.Member | LightParty) -> bool:
+    async def removeJoinRequest(self, target:discord.Member | LightParty | None) -> bool:
         print(f'Remove join request target:{target}')
+        if target == None: target = self
         if isinstance(target, discord.Member):
             for party in ROBIN_GUILD.parties:
                 # LightPartyクラス以外をはじく
                 if not isinstance(party, LightParty): continue
                 for message, member in party.joins.items():
                     if member == target:
-                        if self != party:
-                            # パーティ以外であれば申請取り下げ通知
-                            await message.edit(f'@here\n{target.display_name} が参加取り下げ', view=DummyApproveView())
                         del party.joins[message]
+                        if self == party:
+                            await message.edit(f'-# @here {member.display_name} からの加入申請', view=DummyApproveView())
+                        else:
+                            # パーティ以外であれば申請取り下げ通知
+                            await message.edit(f'@here {target.display_name} が参加取り下げ', view=DummyApproveView())
                         break
             return True
         elif isinstance(target, LightParty):
@@ -176,17 +179,21 @@ class LightParty(Party):
         print(f'PartyNumber:{self.number} JoinMember:{participant.display_name} PartyMemberNumber:{self.membersNum()} Aliance:{self.aliance}')
         if isinstance(participant, Participant): # メンバならスレッドに入れる
             await self.thread.add_user(participant.user)
-            await self.removeJoinRequest(participant.user)
+            # ジョインリストから削除
+            for message, member in self.joins.items():
+                if member == participant.user: del self.joins[message]
         await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
         await self.alianceCheck(ROBIN_GUILD.parties)
-        if self.membersNum() >= 4:
+        if self.membersNum() >= 4: # 4人パーティ検知
             await self.removeJoinRequest(self)
             await self.message.clear_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
             for party in ROBIN_GUILD.parties:
                 if not isinstance(party, LightParty): continue
                 if party.membersNum() != 4: break
             else: await ROBIN_GUILD.PARTY_CH.send('／\nソロ周回スタートする方は\nPT新規生成ヨロシクですっ☆\n▶[新規パーティー生成](https://discord.com/channels/1246651972342386791/1379813214828630137/1380073785855705141)\n＼')
-        await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
+        else: # ４人じゃないときは加入者のみリアクション削除
+            await self.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, participant.user)
+        await self.message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
         return True
     
     async def removeMember(self, member:Participant|discord.Member|Guest) -> bool:
@@ -477,7 +484,7 @@ async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|disc
             for delMessage, member in party.joins.items():
                 if user == member:
                     del party.joins[delMessage]
-                    await delMessage.edit(f'@here {user.display_name} が加入申請を取り下げ', view=None)
+                    await delMessage.edit(f'@here {member.display_name} が参加取り下げ', view=DummyApproveView())
                     break
 
 ##############################################################################################
@@ -549,6 +556,12 @@ async def loop():
                         participant = Participant(user, roles)
                         participants.append(participant)
             participantNum = len(participants)
+            
+            
+            print(f'{dt.now()} Add Log')
+            with open(f'reactionLog/{ROBIN_GUILD.GUILD.name}.csv', 'a', encoding='utf8') as f:
+                for participant in participants:
+                    f.write(f"{ROBIN_GUILD.timeTable[0].strftime('%y-%m-%d-%H')},{participant.id}\n")
 
             print('participants')
             print([participant.display_name for participant in participants])
@@ -601,10 +614,6 @@ async def loop():
         except Exception as e:
             printTraceback(e)
 
-        print(f'{dt.now()} Add Log')
-        with open(f'reactionLog/{ROBIN_GUILD.GUILD.name}.csv', 'a', encoding='utf8') as f:
-            for participant in participants:
-                f.write(f"{ROBIN_GUILD.timeTable[0].strftime('%y-%m-%d-%H')},{participant.id}\n")
         print('#==================================================================#')
 
         # ROBIN_GUILD.reclutingMessage = None
