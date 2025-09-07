@@ -193,7 +193,7 @@ class LightParty(Party):
             else: await ROBIN_GUILD.PARTY_CH.send('／\nソロ周回スタートする方は\nPT新規生成ヨロシクですっ☆\n▶[新規パーティー生成](https://discord.com/channels/1246651972342386791/1379813214828630137/1380073785855705141)\n＼')
         else: # ４人じゃないときは加入者のみリアクション削除
             await self.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, participant.user)
-        await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
+        await self.message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
         return True
     
     async def removeMember(self, member:Participant|discord.Member|Guest) -> bool:
