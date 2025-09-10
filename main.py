@@ -156,7 +156,8 @@ class LightParty(Party):
                 for message, member in party.joins.items():
                     if member == target:
                         del party.joins[message]
-                        if self == party:
+                        print(self, party, self == party)
+                        if self.message.id == party.message.id:
                             await message.edit(f'-# @here {member.display_name} からの加入申請', view=DummyApproveView())
                         else:
                             # パーティ以外であれば申請取り下げ通知
@@ -185,7 +186,7 @@ class LightParty(Party):
         await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
         await self.alianceCheck(ROBIN_GUILD.parties)
         if self.membersNum() >= 4: # 4人パーティ検知
-            await self.removeJoinRequest(self)
+            # await self.removeJoinRequest(self)
             await self.message.clear_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
             for party in ROBIN_GUILD.parties:
                 if not isinstance(party, LightParty): continue
