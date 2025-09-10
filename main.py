@@ -199,8 +199,8 @@ class LightParty(Party):
     
     async def removeMember(self, member:Participant|discord.Member|Guest) -> bool:
         if isinstance(member, Participant): member = member.user # ParticipantであればMemberクラスにする
-        if member not in map(lambda x:x.user, self.members): return False
-        for participant in self.members[-1::-1]:
+        if member not in map(lambda x:x.user, self.members): return False # メンバにいなければFalseで終了
+        for participant in self.members[-1::-1]: # メンバを下から捜査
             if participant.user == member:
                 self.members.remove(participant)
                 print(f'PartyNum: {self.number} RemoveMember: {member.display_name}')
@@ -208,10 +208,10 @@ class LightParty(Party):
                 if self.aliance and self.membersNum() < 4:
                     await self.leaveAlianceParty()
                 await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
-                break
-            if self.membersNum() >= 4:
-                self.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
-        return True
+                if self.membersNum() < 4:
+                    await self.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
+                return True
+        return False
 
     async def removeGuest(self) -> bool:
         for member in self.members[-1::-1]:
