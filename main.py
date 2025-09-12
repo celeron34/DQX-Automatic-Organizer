@@ -181,8 +181,8 @@ class LightParty(Party):
         if isinstance(participant, Participant): # メンバならスレッドに入れる
             await self.thread.add_user(participant.user)
             # ジョインリストから削除
-            for message, member in self.joins.items():
-                if member == participant.user: del self.joins[message]
+            # for message, member in self.joins.items():
+            #     if member == participant.user: del self.joins[message]
         await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
         await self.alianceCheck(ROBIN_GUILD.parties)
         if self.membersNum() >= 4: # 4人パーティ検知
@@ -882,8 +882,8 @@ class ApproveView(discord.ui.View):
                         p.removeMember(joinMember)
                 for p in {p for p in ROBIN_GUILD.parties if joinMember in p.joins.values()}: # 参加リアクション全削除
                     await p.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember)
-                await party.joinMember(Participant(joinMember, set(role for role in joinMember.roles if role in ROBIN_GUILD.ROLES.keys())))
                 await party.removeJoinRequest(joinMember)
+                await party.joinMember(Participant(joinMember, set(role for role in joinMember.roles if role in ROBIN_GUILD.ROLES.keys())))
                 # await thread.starting_message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember) # リアクション処理
             else:
                 print('パーティメンバ以外による承認')
