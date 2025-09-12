@@ -167,6 +167,7 @@ class LightParty(Party):
         elif isinstance(target, LightParty):
             for message, member in target.joins.items():
                 del target.joins[message]
+                await message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, member)
             return True
         else: return False
 
@@ -186,7 +187,7 @@ class LightParty(Party):
         await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
         await self.alianceCheck(ROBIN_GUILD.parties)
         if self.membersNum() >= 4: # 4人パーティ検知
-            # await self.removeJoinRequest(self)
+            await self.removeJoinRequest(self) # 4人になったのでパーティに来ているリクエストを全削除
             await self.message.clear_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
             for party in ROBIN_GUILD.parties:
                 if not isinstance(party, LightParty): continue
@@ -484,6 +485,7 @@ async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|disc
         if reaction.message in map(lambda x:x.message, ROBIN_GUILD.parties) and reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
             party:LightParty = searchLightParty(reaction.message, ROBIN_GUILD.parties)
             for delMessage, member in party.joins.items():
+                # partyのjoinsにあるなら削除と通知
                 if user == member:
                     del party.joins[delMessage]
                     await delMessage.edit(f'@here {member.display_name} が参加取り下げ', view=DummyApproveView())
@@ -882,7 +884,7 @@ class ApproveView(discord.ui.View):
                         p.removeMember(joinMember)
                 for p in {p for p in ROBIN_GUILD.parties if joinMember in p.joins.values()}: # 参加リアクション全削除
                     await p.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember)
-                await party.removeJoinRequest(joinMember)
+                await party.removeJoinRequest(joinMember) # メンバのリクエストを全パーティから削除
                 await party.joinMember(Participant(joinMember, set(role for role in joinMember.roles if role in ROBIN_GUILD.ROLES.keys())))
                 # await thread.starting_message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember) # リアクション処理
             else:
@@ -894,7 +896,7 @@ class ApproveView(discord.ui.View):
         except Exception as e:
             printTraceback(e)
 
-class DummyApproveView(ApproveView):
+class DummyApproveView():
     def __init__(self):
         super().__init__()
     @discord.ui.button(label='承認', disabled=True)
