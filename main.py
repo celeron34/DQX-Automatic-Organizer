@@ -891,9 +891,9 @@ class ApproveView(discord.ui.View):
         except Exception as e:
             printTraceback(e)
 
-class DummyApproveView():
-    def __init__(self):
-        super().__init__()
+class DummyApproveView(discord.ui.View):
+    def __init__(self, *items, timeout = None, disable_on_timeout = True):
+        super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
     @discord.ui.button(label='承認', disabled=True)
     async def approve(self, button:discord.ui.Button, interaction:discord.Interaction):
         pass
