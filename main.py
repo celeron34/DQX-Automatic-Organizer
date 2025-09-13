@@ -406,7 +406,7 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
         # 途中自動参加
         if reaction.message == ROBIN_GUILD.reclutingMessage:
             print('Join request to F')
-            if not isPartyMember(user):
+            if isPartyMember(user):
                 minParty:LightParty|None = None
                 for party in ROBIN_GUILD.parties:
                     if isinstance(party, LightParty):
