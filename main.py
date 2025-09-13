@@ -225,7 +225,7 @@ class LightParty(Party):
         return False
     
     def isMember(self, user:discord.Member):
-        try: return user in self.members
+        try: return user in map(lambda x:x.user ,self.members)
         except Exception as e:
             printTraceback(e)
             return False
