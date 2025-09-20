@@ -156,7 +156,7 @@ class LightParty(Party):
                 for message, member in party.joins.items():
                     if member == target:
                         del party.joins[message]
-                        await message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, target)
+                        await party.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, target)
                         if self == party:
                             await message.edit(f'-# @here {member.display_name} からの加入申請', view=DummyApproveView())
                         else:
@@ -167,7 +167,7 @@ class LightParty(Party):
         elif isinstance(target, LightParty):
             for message, member in target.joins.items():
                 del target.joins[message]
-                await message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, member)
+                await target.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, member)
             return True
         else: return False
 
