@@ -156,6 +156,7 @@ class LightParty(Party):
                 for message, member in party.joins.items():
                     if member == target:
                         del party.joins[message]
+                        await party.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, target)
                         if self == party:
                             await message.edit(f'-# @here {member.display_name} からの加入申請', view=DummyApproveView())
                         else:
@@ -166,6 +167,7 @@ class LightParty(Party):
         elif isinstance(target, LightParty):
             for message, member in target.joins.items():
                 del target.joins[message]
+                await target.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, member)
             return True
         else: return False
 
@@ -180,26 +182,24 @@ class LightParty(Party):
         if isinstance(participant, Participant): # メンバならスレッドに入れる
             await self.thread.add_user(participant.user)
             # ジョインリストから削除
-            for message, member in self.joins.items():
-                if member == participant.user: del self.joins[message]
+            # for message, member in self.joins.items():
+            #     if member == participant.user: del self.joins[message]
         await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
         await self.alianceCheck(ROBIN_GUILD.parties)
         if self.membersNum() >= 4: # 4人パーティ検知
-            await self.removeJoinRequest(self)
+            await self.removeJoinRequest(self) # 4人になったのでパーティに来ているリクエストを全削除
             await self.message.clear_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
             for party in ROBIN_GUILD.parties:
                 if not isinstance(party, LightParty): continue
                 if party.membersNum() != 4: break
             else: await ROBIN_GUILD.PARTY_CH.send('／\nソロ周回スタートする方は\nPT新規生成ヨロシクですっ☆\n▶[新規パーティー生成](https://discord.com/channels/1246651972342386791/1379813214828630137/1380073785855705141)\n＼')
-        else: # ４人じゃないときは加入者のみリアクション削除
-            await self.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, participant.user)
-        await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
+        await self.message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
         return True
     
     async def removeMember(self, member:Participant|discord.Member|Guest) -> bool:
         if isinstance(member, Participant): member = member.user # ParticipantであればMemberクラスにする
-        if member not in map(lambda x:x.user, self.members): return False
-        for participant in self.members[-1::-1]:
+        if member not in map(lambda x:x.user, self.members): return False # メンバにいなければFalseで終了
+        for participant in self.members[-1::-1]: # メンバを下から捜査
             if participant.user == member:
                 self.members.remove(participant)
                 print(f'PartyNum: {self.number} RemoveMember: {member.display_name}')
@@ -207,10 +207,10 @@ class LightParty(Party):
                 if self.aliance and self.membersNum() < 4:
                     await self.leaveAlianceParty()
                 await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
-                break
-            if self.membersNum() >= 4:
-                self.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
-        return True
+                if self.membersNum() < 4:
+                    await self.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
+                return True
+        return False
 
     async def removeGuest(self) -> bool:
         for member in self.members[-1::-1]:
@@ -225,7 +225,7 @@ class LightParty(Party):
         return False
     
     def isMember(self, user:discord.Member):
-        try: return user in self.members
+        try: return user in map(lambda x:x.user ,self.members)
         except Exception as e:
             printTraceback(e)
             return False
@@ -295,6 +295,8 @@ class Guild:
         self.RECLUTING_EMOJI:discord.Emoji = None # 参加リアクション
         self.FULLPARTY_EMOJI:discord.Emoji = None
         # self.LIGHTPARTY_EMOJI:discord.Emoji = None
+        self.MEMBER_ROLE:discord.Role = None
+        self.UNAPPLIDE_MEMBER_ROLE:discord.Role = None # 未申請メンバ
         
         self.ROLES:dict[discord.Role, RoleInfo] = None
         # self.ROLES:dict[discord.Role, ]
@@ -346,6 +348,8 @@ async def on_ready():
             ROBIN_GUILD.GUILD.get_role(1252170590010478602) : RoleInfo(client.get_emoji(1345708222962470952), 1), # 魔戦
             ROBIN_GUILD.GUILD.get_role(1252172997058498580) : RoleInfo(client.get_emoji(1345708066741424138), 3), # 回復
         }
+    ROBIN_GUILD.MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(1401408742498631680)
+    ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(1420934288999976960)
     
     await ROBIN_GUILD.COMMAND_CH.purge()
 
@@ -384,6 +388,9 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
     global ROBIN_GUILD
     if user == client.user: return # 自信（ボット）のリアクションを無視
     if not reaction.is_custom_emoji(): return # カスタム絵文字以外を無視
+    if ROBIN_GUILD.MEMBER_ROLE not in user.roles:
+        await on_reaction_remove(reaction, user)
+        return
 
     # message = await ROBIN_GUILD.PARTY_CH.fetch_message(reaction.message.id)
 
@@ -406,7 +413,7 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
         # 途中自動参加
         if reaction.message == ROBIN_GUILD.reclutingMessage:
             print('Join request to F')
-            if not isPartyMember(user):
+            if isPartyMember(user):
                 minParty:LightParty|None = None
                 for party in ROBIN_GUILD.parties:
                     if isinstance(party, LightParty):
@@ -469,6 +476,8 @@ async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|disc
     global ROBIN_GUILD
     if user == client.user: return # 自信（ボット）のリアクションを無視
     if not reaction.is_custom_emoji(): return # カスタム絵文字以外を無視
+    if ROBIN_GUILD.MEMBER_ROLE not in user.roles: return
+
 
     print(f'{dt.now()} recive reaction remove {user} {reaction.emoji.name}')
 
@@ -482,6 +491,7 @@ async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|disc
         if reaction.message in map(lambda x:x.message, ROBIN_GUILD.parties) and reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
             party:LightParty = searchLightParty(reaction.message, ROBIN_GUILD.parties)
             for delMessage, member in party.joins.items():
+                # partyのjoinsにあるなら削除と通知
                 if user == member:
                     del party.joins[delMessage]
                     await delMessage.edit(f'@here {member.display_name} が参加取り下げ', view=DummyApproveView())
@@ -506,6 +516,13 @@ async def on_message_delete(message):
         ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH)
 
 #endregion
+
+##############################################################################################
+##############################################################################################
+#region サーバー加入
+@client.event
+async def on_member_join(member:discord.Member):
+    await member.add_roles(ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE)
 
 ##############################################################################################
 ##############################################################################################
@@ -552,6 +569,7 @@ async def loop():
                 if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
                     async for user in reaction.users():
                         if user == client.user: continue
+                        if ROBIN_GUILD.MEMBER_ROLE not in user.roles: continue
                         roles = {role for role in user.roles if role in ROBIN_GUILD.ROLES.keys()}
                         participant = Participant(user, roles)
                         participants.append(participant)
@@ -870,6 +888,11 @@ class ApproveView(discord.ui.View):
     def __init__(self, *items, timeout = None, disable_on_timeout = True):
         super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
         self.startTime = perf_counter()
+    async def on_timeout(self):
+        party = searchLightParty(self.message, ROBIN_GUILD.parties)
+        requestMember = party.joins[self.message]
+        await on_reaction_remove(ROBIN_GUILD.RECLUTING_EMOJI, party.message)
+        await ROBIN_GUILD.PARTY_CH.send(f'{requestMember.mention}パーティ{party.number}の参加申請がタイムアウトしました', delete_after=60)
     @discord.ui.button(label='承認')
     async def approve(self, button:discord.ui.Button, interaction:discord.Interaction):
         try:
@@ -887,10 +910,8 @@ class ApproveView(discord.ui.View):
                 for p in ROBIN_GUILD.parties:
                     if isinstance(p, LightParty) and p.isMember(joinMember):
                         p.removeMember(joinMember)
-                for p in {p for p in ROBIN_GUILD.parties if joinMember in p.joins.values()}: # 参加リアクション全削除
-                    await p.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember)
+                await party.removeJoinRequest(joinMember) # メンバのリクエストを全パーティから削除
                 await party.joinMember(Participant(joinMember, set(role for role in joinMember.roles if role in ROBIN_GUILD.ROLES.keys())))
-                await party.removeJoinRequest(joinMember)
                 # await thread.starting_message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember) # リアクション処理
             else:
                 print('パーティメンバ以外による承認')
@@ -901,9 +922,9 @@ class ApproveView(discord.ui.View):
         except Exception as e:
             printTraceback(e)
 
-class DummyApproveView(ApproveView):
-    def __init__(self):
-        super().__init__()
+class DummyApproveView(discord.ui.View):
+    def __init__(self, *items, timeout = None, disable_on_timeout = True):
+        super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
     @discord.ui.button(label='承認', disabled=True)
     async def approve(self, button:discord.ui.Button, interaction:discord.Interaction):
         pass
@@ -1143,8 +1164,7 @@ async def f_get_participant_name(ctx:discord.ApplicationContext):
     with open(filename, 'w') as f:
         async for member in ctx.interaction.guild.fetch_members():
             f.write(f'{member.id},{member.name},{member.display_name},{member.joined_at}\n')
-    with open(filename, 'r') as f:
-        csvFile = discord.File(fp=f, filename=dt.now().strftime('participant_name_%y%m%d-%H%M%S.csv'))
+    csvFile = discord.File(filename, filename=dt.now().strftime('participant_name_%y%m%d-%H%M%S.csv'))
     await ctx.respond(f'{ctx.interaction.user.mention}\nフォーマットは\n`ユーザーID,ユーザー名,表示名,加入時期`', file=csvFile)
 
 async def f_reboot(ctx:discord.ApplicationContext|None = None):
@@ -1155,14 +1175,12 @@ async def f_reboot(ctx:discord.ApplicationContext|None = None):
 
 @client.slash_command(name='f-get-leave-month', description='任意の月間不参加者抽出')
 async def f_get_leave_month(ctx:discord.ApplicationContext, month:int):
-    targetGuild = ctx.interaction.guild
-    leaveMembers = joinLeaveMembers(targetGuild, delta(month=int(month)), targetGuild.get_role(1393529338053267557))
-    filename = f'cash/{ctx.interaction.guild.name}.csv'
+    leaveMembers = joinLeaveMembers(ctx.interaction.guild, delta(month=month), {1246661252147576842, 1246661367658840178, 1246989946263306302, 1393529338053267557, 1362429512909979778})
+    filename = f'cache/{ctx.interaction.guild.name}.csv'
     with open(filename, 'w') as f:
         for member in leaveMembers:
             f.write(f'{member.id},{member.display_name}\n')
-    with open(filename, 'r') as f:
-        csvFile = discord.File(fp=f, filename=dt.now().strftime('leaveMembers_%y%m%d-%H%M%S.csv'))
+    csvFile = discord.File(filename, filename=dt.now().strftime('leaveMembers_%y%m%d-%H%M%S.csv'))
     await ctx.respond(f'{ctx.interaction.user.mention}\nフォーマットは\n`ID,表示名`', file=csvFile)
     
 #endregion
