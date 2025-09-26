@@ -17,6 +17,7 @@ from subprocess import Popen, check_output
 from traceback import extract_tb, format_list
 from re import sub, match
 from os import getcwd, path
+import json
 
 # インテント
 intents = discord.Intents.all()
@@ -316,14 +317,17 @@ async def on_ready():
     print(f'{dt.now()} on_ready START')
 
     # チャンネル・ギルドをゲット
-    ROBIN_GUILD = Guild(1246651972342386791)
+    with open('IDs.json') as f:
+        IDs = json.load(f)
+
+    ROBIN_GUILD = Guild(IDs[0]['guildID'])
 
     # beta 1346195417808896041
-    ROBIN_GUILD.PARTY_CH      = client.get_channel(1246662816673304587)
+    ROBIN_GUILD.PARTY_CH      = client.get_channel(IDs[0]['channels']['party'])
     ROBIN_GUILD.PARTY_CH_beta = client.get_channel(1346195417808896041)
     ROBIN_GUILD.PARTY_LOG     = client.get_channel(1353638340456484916)
     ROBIN_GUILD.DEV_CH        = client.get_channel(1365285325810962534)
-    ROBIN_GUILD.COMMAND_CH    = client.get_channel(1249294452149715016)
+    ROBIN_GUILD.COMMAND_CH    = client.get_channel(IDs[0]['channels']['command'])
 
     try:
         # コミットハッシュ取得
@@ -336,20 +340,26 @@ async def on_ready():
 
 
     # 絵文字ゲット
-    ROBIN_GUILD.RECLUTING_EMOJI =  client.get_emoji(1345708506111545375)
+    ROBIN_GUILD.RECLUTING_EMOJI =  client.get_emoji(IDs[0]['emojis']['reclutingEmoji'])
     # ROBIN_GUILD.FULLPARTY_EMOJI =  client.get_emoji(1345733070065500281)
     # ROBIN_GUILD.LIGHTPARTY_EMOJI = client.get_emoji(1345688469183266886)
 
     ROBIN_GUILD.ROLES = {
-            ROBIN_GUILD.GUILD.get_role(1252170810144325634) : RoleInfo(client.get_emoji(1345710507398529085), 1), # 先導
-            ROBIN_GUILD.GUILD.get_role(1252171064700829757) : RoleInfo(client.get_emoji(1345708117618458695), 1), # 札
-            ROBIN_GUILD.GUILD.get_role(1252171128068112444) : RoleInfo(client.get_emoji(1345708094251859999), 1), # 中継
-            ROBIN_GUILD.GUILD.get_role(1252170979929755718) : RoleInfo(client.get_emoji(1345708049838641234), 1), # 霧
-            ROBIN_GUILD.GUILD.get_role(1252170590010478602) : RoleInfo(client.get_emoji(1345708222962470952), 1), # 魔戦
-            ROBIN_GUILD.GUILD.get_role(1252172997058498580) : RoleInfo(client.get_emoji(1345708066741424138), 3), # 回復
+            ROBIN_GUILD.GUILD.get_role(IDs[0]['partyRoles']['boomerang']['role']) : 
+                RoleInfo(client.get_emoji(IDs[0]['partyRoles']['boomerang']['emoji']), 1), # 先導
+            ROBIN_GUILD.GUILD.get_role(IDs[0]['partyRoles']['card']['role']) :
+                RoleInfo(client.get_emoji(IDs[0]['partyRoles']['card']['emoji']), 1), # 札
+            ROBIN_GUILD.GUILD.get_role(IDs[0]['partyRoles']['relay']['role']) :
+                RoleInfo(client.get_emoji(IDs[0]['partyRoles']['relay']['emoji']), 1), # 中継
+            ROBIN_GUILD.GUILD.get_role(IDs[0]['partyRoles']['smoke']['role']) :
+                RoleInfo(client.get_emoji(IDs[0]['partyRoles']['smoke']['emoji']), 1), # 霧
+            ROBIN_GUILD.GUILD.get_role(IDs[0]['partyRoles']['magic']['role']) :
+                RoleInfo(client.get_emoji(IDs[0]['partyRoles']['magic']['emoji']), 1), # 魔戦
+            ROBIN_GUILD.GUILD.get_role(IDs[0]['partyRoles']['heal']['role']) :
+                RoleInfo(client.get_emoji(IDs[0]['partyRoles']['heal']['emoji']), 3), # 回復
         }
-    ROBIN_GUILD.MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(1401408742498631680)
-    ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(1420934288999976960)
+    ROBIN_GUILD.MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['memberRole'])
+    ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['unapplidRole'])
     
     await ROBIN_GUILD.COMMAND_CH.purge()
 
@@ -1192,8 +1202,8 @@ if __name__ == '__main__':
     print(f'{dt.now()} スクリプト起動')
     # print(f"Intents.members: {client.intents.members}")  # True ならOK
     try:
-        with open('../token.csv', 'r', encoding='utf-8') as f:
-            token = f.readlines()[0]
+        with open('token.json', 'r', encoding='utf-8') as f:
+            token = json.load(f)['token']
         client.run(token)
     except KeyboardInterrupt:
         exit()
