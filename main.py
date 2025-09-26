@@ -295,6 +295,8 @@ class Guild:
         self.RECLUTING_EMOJI:discord.Emoji = None # 参加リアクション
         self.FULLPARTY_EMOJI:discord.Emoji = None
         # self.LIGHTPARTY_EMOJI:discord.Emoji = None
+        self.MEMBER_ROLE:discord.Role = None
+        self.UNAPPLIDE_MEMBER_ROLE:discord.Role = None # 未申請メンバ
         
         self.ROLES:dict[discord.Role, RoleInfo] = None
         # self.ROLES:dict[discord.Role, ]
@@ -346,6 +348,8 @@ async def on_ready():
             ROBIN_GUILD.GUILD.get_role(1252170590010478602) : RoleInfo(client.get_emoji(1345708222962470952), 1), # 魔戦
             ROBIN_GUILD.GUILD.get_role(1252172997058498580) : RoleInfo(client.get_emoji(1345708066741424138), 3), # 回復
         }
+    ROBIN_GUILD.MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(1401408742498631680)
+    ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(1420934288999976960)
     
     await ROBIN_GUILD.COMMAND_CH.purge()
 
@@ -384,6 +388,9 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
     global ROBIN_GUILD
     if user == client.user: return # 自信（ボット）のリアクションを無視
     if not reaction.is_custom_emoji(): return # カスタム絵文字以外を無視
+    if ROBIN_GUILD.MEMBER_ROLE not in user.roles:
+        await on_reaction_remove(reaction, user)
+        return
 
     # message = await ROBIN_GUILD.PARTY_CH.fetch_message(reaction.message.id)
 
@@ -469,6 +476,8 @@ async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|disc
     global ROBIN_GUILD
     if user == client.user: return # 自信（ボット）のリアクションを無視
     if not reaction.is_custom_emoji(): return # カスタム絵文字以外を無視
+    if ROBIN_GUILD.MEMBER_ROLE not in user.roles: return
+
 
     print(f'{dt.now()} recive reaction remove {user} {reaction.emoji.name}')
 
@@ -507,6 +516,13 @@ async def on_message_delete(message):
         ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH)
 
 #endregion
+
+##############################################################################################
+##############################################################################################
+#region サーバー加入
+@client.event
+async def on_member_join(member:discord.Member):
+    await member.add_roles(ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE)
 
 ##############################################################################################
 ##############################################################################################
@@ -553,6 +569,7 @@ async def loop():
                 if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
                     async for user in reaction.users():
                         if user == client.user: continue
+                        if ROBIN_GUILD.MEMBER_ROLE not in user.roles: continue
                         roles = {role for role in user.roles if role in ROBIN_GUILD.ROLES.keys()}
                         participant = Participant(user, roles)
                         participants.append(participant)
