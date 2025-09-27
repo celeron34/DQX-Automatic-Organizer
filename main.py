@@ -359,7 +359,7 @@ async def on_ready():
                 RoleInfo(client.get_emoji(IDs[0]['partyRoles']['heal']['emoji']), 3), # 回復
         }
     ROBIN_GUILD.MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['memberRole'])
-    ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['unapplidRole'])
+    ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['unapplideRole'])
     
     await ROBIN_GUILD.COMMAND_CH.purge()
 
