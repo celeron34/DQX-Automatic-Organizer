@@ -286,6 +286,7 @@ class Guild:
         self.COMMAND_CH:discord.TextChannel = None # コマンドチャンネル
         self.COMMAND_MSG:discord.Message = None # コマンドメッセージ
         self.PARTY_LOG:discord.TextChannel = None # パーティログチャンネル
+        self.UNAPPLIDE_CHANNEL:discord.TextChannel = None # 参加申請チャンネル
 
         self.reclutingMessage:discord.Message = None # 募集メッセージ
         self.parties:list[SpeedParty|LightParty]|None = None # パーティ一覧
@@ -328,6 +329,7 @@ async def on_ready():
     ROBIN_GUILD.PARTY_LOG     = client.get_channel(1353638340456484916)
     ROBIN_GUILD.DEV_CH        = client.get_channel(1365285325810962534)
     ROBIN_GUILD.COMMAND_CH    = client.get_channel(IDs[0]['channels']['command'])
+    ROBIN_GUILD.UNAPPLIDE_CHANNEL = client.get_channel(IDs[0]['channels']['unapplide'])
 
     try:
         # コミットハッシュ取得
@@ -340,7 +342,7 @@ async def on_ready():
 
 
     # 絵文字ゲット
-    ROBIN_GUILD.RECLUTING_EMOJI =  client.get_emoji(IDs[0]['emojis']['reclutingEmoji'])
+    ROBIN_GUILD.RECLUTING_EMOJI =  client.get_emoji(IDs[0]['emojis']['recluting'])
     # ROBIN_GUILD.FULLPARTY_EMOJI =  client.get_emoji(1345733070065500281)
     # ROBIN_GUILD.LIGHTPARTY_EMOJI = client.get_emoji(1345688469183266886)
 
@@ -358,8 +360,8 @@ async def on_ready():
             ROBIN_GUILD.GUILD.get_role(IDs[0]['partyRoles']['heal']['role']) :
                 RoleInfo(client.get_emoji(IDs[0]['partyRoles']['heal']['emoji']), 3), # 回復
         }
-    ROBIN_GUILD.MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['memberRole'])
-    ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['unapplideRole'])
+    ROBIN_GUILD.MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['member'])
+    ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['unapplide'])
     
     await ROBIN_GUILD.COMMAND_CH.purge()
 
@@ -533,6 +535,9 @@ async def on_message_delete(message):
 @client.event
 async def on_member_join(member:discord.Member):
     await member.add_roles(ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE)
+    await ROBIN_GUILD.UNAPPLIDE_CHANNEL.send(f'{member.mention}新しくご加入いただいた方は「閲覧」のみ可能となっております。\n「参加権」をご希望の場合は、こちらで「参加権申請」をお願いいたします。\n申請方法はこちら https://discord.com/channels/1246651972342386791/1420938307914694696/1421462015599312897 またはピン留め')
+
+#endregion
 
 ##############################################################################################
 ##############################################################################################
