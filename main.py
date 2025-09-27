@@ -401,7 +401,7 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
     if user == client.user: return # 自信（ボット）のリアクションを無視
     if not reaction.is_custom_emoji(): return # カスタム絵文字以外を無視
     if ROBIN_GUILD.MEMBER_ROLE not in user.roles:
-        await on_reaction_remove(reaction, user)
+        await reaction.message.remove_reaction(reaction, user)
         return
 
     # message = await ROBIN_GUILD.PARTY_CH.fetch_message(reaction.message.id)
