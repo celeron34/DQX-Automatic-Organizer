@@ -166,9 +166,11 @@ class LightParty(Party):
                         break
             return True
         elif isinstance(target, LightParty):
-            for message, member in target.joins.items():
-                del target.joins[message]
-                await target.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, member)
+            # ライトパーティのリクエスト全削除
+            removeMembers = {member for member in target.joins.values()}
+            target.joins.clear()
+            for removeMember in removeMembers:
+                await target.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, removeMember)
             return True
         else: return False
 
