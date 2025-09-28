@@ -918,6 +918,7 @@ class ApproveView(discord.ui.View):
             print(f'{dt.now()} Approve from {user} {type(user)}')
             party = searchLightParty(message.channel, ROBIN_GUILD.parties)
             if user.id in {participant.id for participant in party.members}: # パーティメンバである
+                self.disable_on_timeout = False
                 buttonAllDisable(self.children)
                 await interaction.response.edit_message(view=self)
                 print('パーティメンバによる承認')
@@ -1013,6 +1014,9 @@ class FormationTopView(discord.ui.View):
         self.startTime = perf_counter()
     @discord.ui.button(label='新規パーティ生成')
     async def newPartyButton(self, button:discord.ui.Button, interaction:discord.Interaction):
+        if ROBIN_GUILD.MEMBER_ROLE not in interaction.user.roles:
+            await interaction.response.defer()
+            return
         print(f'{dt.now()} New Party button from {interaction.user.display_name}')
         await interaction.response.defer()
         if all({interaction.user.id not in map(lambda party:map(lambda member:member.id, party.members), ROBIN_GUILD.parties)}):
