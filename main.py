@@ -1039,10 +1039,14 @@ class RebootView(discord.ui.View):
         await interaction.respond('再起動スケジュールを設定しました')
     @discord.ui.button(label='すぐに再起動', style=discord.ButtonStyle.red)
     async def justReboot(self, button:discord.ui.Button, interaction:discord.Interaction):
-        button.disabled = True
         buttonAllDisable(self.children)
         await interaction.response.edit_message(view=self)
         await f_reboot(interaction)
+    @discord.ui.button(label='安定版再起動', style=discord.ButtonStyle.red)
+    async def stableReboot(self, button:discord.ui.Button, interaction:discord.Interaction):
+        buttonAllDisable(self.children)
+        await interaction.response.edit_message(view=self)
+        await f_stableReboot()
 
 # class RecluteView(discord.ui.View):
 #     def __init__(self, *items, timeout=None, disable_on_timeout=True, disable01=False, disable02=False):
@@ -1175,6 +1179,13 @@ async def f_get_participant_name(ctx:discord.ApplicationContext):
 
 async def f_reboot(ctx:discord.ApplicationContext|None = None):
     if ctx: await ctx.respond('再起動します')
+    Popen([executable, '-u'] + argv, cwd=getcwd())  # ボットを再起動
+    await client.close()  # ボットを終了
+    exit()
+
+async def f_stableReboot(ctx:discord.ApplicationContext|None = None):
+    if ctx: await ctx.respond('安定版再起動します')
+    Popen(['git', 'checkout', '--force', 'main'], cwd=getcwd())
     Popen([executable, '-u'] + argv, cwd=getcwd())  # ボットを再起動
     await client.close()  # ボットを終了
     exit()
