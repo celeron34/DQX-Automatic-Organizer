@@ -999,7 +999,7 @@ class FormationTopView(discord.ui.View):
     def __init__(self, *items, timeout = None, disable_on_timeout = True):
         super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
         self.startTime = perf_counter()
-    @discord.ui.button(label='新規パーティ生成')
+    @discord.ui.button(label='新規パーティ生成', style=discord.ButtonStyle.blurple)
     async def newPartyButton(self, button:discord.ui.Button, interaction:discord.Interaction):
         if ROBIN_GUILD.MEMBER_ROLE not in interaction.user.roles:
             await interaction.response.send_message(f'{interaction.user.mention}\n参加権がありません https://discord.com/channels/1246651972342386791/1420938307914694696 で参加権申請してください', delete_after=5, ephemeral=True)
