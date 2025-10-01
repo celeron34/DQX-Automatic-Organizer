@@ -924,9 +924,7 @@ class ApproveView(discord.ui.View):
                 # await thread.starting_message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember) # リアクション処理
             else:
                 print('パーティメンバ以外による承認')
-                await interaction.response.defer()
-                msg = await interaction.channel.send(f'{interaction.user.mention}\nパーティメンバ以外は操作できません')
-                await msg.delete(delay=5)
+                await interaction.response.send_message(f'{interaction.user.mention}\nパーティメンバ以外は操作できません', ephemeral=True, delete_after=5)
                 return
         except Exception as e:
             printTraceback(e)
@@ -950,8 +948,7 @@ class PartyView(discord.ui.View):
         await interaction.response.defer()
         if party == None:
             print(f'非パーティメンバによるアクション')
-            msg = await interaction.channel.send(f'{interaction.user.mention}パーティメンバ以外は操作できません')
-            await msg.delete(delay=5)
+            await interaction.response.send_message(f'{interaction.user.mention}パーティメンバ以外は操作できません', delete_after=5, ephemeral=True)
             return
         if interaction.user in map(lambda x:x.user, party.members):
             # ユーザーがパーティメンバー
@@ -969,8 +966,7 @@ class PartyView(discord.ui.View):
                 
         else: # ユーザーが別パーティメンバ
             print('別パーティによるアクション')
-            msg = await interaction.channel.send(f'{interaction.user.mention}パーティメンバ以外は操作できません')
-            await msg.delete(delay=5)
+            await interaction.response.send_message(f'{interaction.user.mention}パーティメンバ以外は操作できません', delete_after=5, ephemeral=True)
 
     @discord.ui.button(label='ゲスト追加', style=discord.ButtonStyle.green, row=1)
     async def addGuest(self, button:discord.ui.Button, interaction:discord.Interaction):
@@ -988,15 +984,14 @@ class PartyView(discord.ui.View):
     @discord.ui.button(label='ゲスト削除', style=discord.ButtonStyle.red, row=1)
     async def removeGuest(self, button:discord.ui.Button, interaction:discord.Interaction):
         print(f'{dt.now()} Guest remove button from {interaction.user.display_name}')
-        await interaction.response.defer()
         party = searchLightParty(interaction.channel.starting_message, ROBIN_GUILD.parties)
         if party == None:
             print(f'非パーティメンバによるアクション')
-            msg = await interaction.channel.send(f'{interaction.user.mention}パーティメンバ以外は操作できません')
-            await msg.delete(delay=5)
+            await interaction.response.send_message(f'{interaction.user.mention}パーティメンバ以外は操作できません', ephemeral=True, delete_after=5)
             return
         if interaction.user in map(lambda x:x.user, party.members): # パーティメンバである
             print('パーティメンバによるアクション')
+            await interaction.response.defer()
             await party.removeGuest()
 
 class FormationTopView(discord.ui.View):
@@ -1006,16 +1001,15 @@ class FormationTopView(discord.ui.View):
     @discord.ui.button(label='新規パーティ生成')
     async def newPartyButton(self, button:discord.ui.Button, interaction:discord.Interaction):
         if ROBIN_GUILD.MEMBER_ROLE not in interaction.user.roles:
-            await interaction.response.defer()
+            await interaction.response.send_message(f'{interaction.user.mention}\n参加権がありません https://discord.com/channels/1246651972342386791/1420938307914694696 で参加権申請してください', delete_after=5, ephemeral=True)
             return
         print(f'{dt.now()} New Party button from {interaction.user.display_name}')
         await interaction.response.defer()
         if all({interaction.user.id not in map(lambda party:map(lambda member:member.id, party.members), ROBIN_GUILD.parties)}):
             await createNewParty(interaction.user, free=True)
         else:
-            alartMessage = await interaction.channel.send(f'{interaction.user.mention}パーティメンバは新規パーティを生成できません')
-            await alartMessage.delete(delay=5)
-
+            await interaction.response.send_message(f'{interaction.user.mention}\nパーティメンバは新規パーティを生成できません', delete_after=5, ephemeral=True)
+            
 async def createNewParty(user:discord.Member, free:bool=False):
     if len(ROBIN_GUILD.parties) == 0: newPartyNum = 1
     else: newPartyNum = max(map(lambda x:x.number, ROBIN_GUILD.parties)) + 1
