@@ -868,22 +868,22 @@ class RoleManageView(discord.ui.View):
             await interaction.user.add_roles(role)
             await interaction.response.send_message(f'[{label}] を追加', ephemeral=True, delete_after=5)
 
-    @discord.ui.button(label='魔戦', emoji='<:magic_knight:1345708222962470952>', row=1)
+    @discord.ui.button(label='魔戦', emoji='<:magic_knight:1345708222962470952>', row=1, style=discord.ButtonStyle.blurple)
     async def magicKnight(self, button:discord.ui.Button, interaction:discord.Interaction):
         await self.roleManage(button.label, button.emoji, interaction)
-    @discord.ui.button(label='先導', emoji='<:boomerang:1345710507398529085>', row=1)
+    @discord.ui.button(label='先導', emoji='<:boomerang:1345710507398529085>', row=1, style=discord.ButtonStyle.blurple)
     async def boomerang(self, button:discord.ui.Button, interaction:discord.Interaction):
         await self.roleManage(button.label, button.emoji, interaction)
-    @discord.ui.button(label='霧', emoji='<:buttarfly:1345708049838641234>', row=1)
+    @discord.ui.button(label='霧', emoji='<:buttarfly:1345708049838641234>', row=1, style=discord.ButtonStyle.blurple)
     async def butterfly(self, button:discord.ui.Button, interaction:discord.Interaction):
         await self.roleManage(button.label, button.emoji, interaction)
-    @discord.ui.button(label='札', emoji='<:card:1345708117618458695>', row=2)
+    @discord.ui.button(label='札', emoji='<:card:1345708117618458695>', row=2, style=discord.ButtonStyle.blurple)
     async def card(self, button:discord.ui.Button, interaction:discord.Interaction):
         await self.roleManage(button.label, button.emoji, interaction)
-    @discord.ui.button(label='中継', emoji='<:relay:1345708094251859999>', row=2)
+    @discord.ui.button(label='中継', emoji='<:relay:1345708094251859999>', row=2, style=discord.ButtonStyle.blurple)
     async def way(self, button:discord.ui.Button, interaction:discord.Interaction):
         await self.roleManage(button.label, button.emoji, interaction)
-    @discord.ui.button(label='回復', emoji='<:heal:1345708066741424138>', row=2)
+    @discord.ui.button(label='回復', emoji='<:heal:1345708066741424138>', row=2, style=discord.ButtonStyle.blurple)
     async def heal(self, button:discord.ui.Button, interaction:discord.Interaction):
         await self.roleManage(button.label, button.emoji, interaction)
     @discord.ui.button(label='オールクリア', row=3, style=discord.ButtonStyle.red)
