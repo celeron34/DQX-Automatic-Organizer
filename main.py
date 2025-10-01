@@ -885,7 +885,7 @@ class RoleManageView(discord.ui.View):
     @discord.ui.button(label='回復', emoji='<:heal:1345708066741424138>', row=2)
     async def heal(self, button:discord.ui.Button, interaction:discord.Interaction):
         await self.roleManage(button.label, button.emoji, interaction)
-    @discord.ui.button(label='オールクリア', row=3)
+    @discord.ui.button(label='オールクリア', row=3, style=discord.ButtonStyle.red)
     async def all_clear(self, button:discord.ui.Button, interaction:discord.Interaction):
         for role in ROBIN_GUILD.ROLES.keys():
             if role in interaction.user.roles:
