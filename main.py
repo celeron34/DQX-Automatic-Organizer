@@ -901,7 +901,7 @@ class ApproveView(discord.ui.View):
         requestMember = party.joins[self.message]
         await on_reaction_remove(ROBIN_GUILD.RECLUTING_EMOJI, party.message)
         await ROBIN_GUILD.PARTY_CH.send(f'{requestMember.mention}パーティ{party.number}の参加申請がタイムアウトしました', delete_after=60)
-    @discord.ui.button(label='承認')
+    @discord.ui.button(label='承認', style=discord.ButtonStyle.blurple)
     async def approve(self, button:discord.ui.Button, interaction:discord.Interaction):
         try:
             message = interaction.message
@@ -934,7 +934,7 @@ class ApproveView(discord.ui.View):
 class DummyApproveView(discord.ui.View):
     def __init__(self, *items, timeout = None, disable_on_timeout = True):
         super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
-    @discord.ui.button(label='承認', disabled=True)
+    @discord.ui.button(label='承認', disabled=True, style=discord.ButtonStyle.blurple)
     async def approve(self, button:discord.ui.Button, interaction:discord.Interaction):
         pass
 
