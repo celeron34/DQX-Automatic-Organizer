@@ -943,7 +943,7 @@ class PartyView(discord.ui.View):
         super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
         self.startTime = perf_counter()
 
-    @discord.ui.button(label='パーティを抜ける')
+    @discord.ui.button(label='パーティを抜ける', style=discord.ButtonStyle.gray, row=2)
     async def leaveParty(self, button:discord.ui.Button, interaction:discord.Interaction):
         print(f'{dt.now()} Leave party button is pressed from {interaction.user.display_name}')
         party:LightParty = searchLightParty(interaction.message, ROBIN_GUILD.parties)
@@ -972,7 +972,7 @@ class PartyView(discord.ui.View):
             msg = await interaction.channel.send(f'{interaction.user.mention}パーティメンバ以外は操作できません')
             await msg.delete(delay=5)
 
-    @discord.ui.button(label='ゲスト追加')
+    @discord.ui.button(label='ゲスト追加', style=discord.ButtonStyle.green, row=1)
     async def addGuest(self, button:discord.ui.Button, interaction:discord.Interaction):
         print(f'{dt.now()} Guest add button is pressed from {interaction.user.display_name}')
         await interaction.response.defer()
@@ -985,7 +985,7 @@ class PartyView(discord.ui.View):
             print(f'パーティメンバによるアクション')
             await party.joinMember(Guest())
     
-    @discord.ui.button(label='ゲスト削除')
+    @discord.ui.button(label='ゲスト削除', style=discord.ButtonStyle.red, row=1)
     async def removeGuest(self, button:discord.ui.Button, interaction:discord.Interaction):
         print(f'{dt.now()} Guest remove button from {interaction.user.display_name}')
         await interaction.response.defer()
