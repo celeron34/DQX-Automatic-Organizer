@@ -537,8 +537,8 @@ async def on_message_delete(message):
 @client.event
 async def on_member_join(member:discord.Member):
     await member.add_roles(ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE)
-    await ROBIN_GUILD.UNAPPLIDE_CHANNEL.send(f'{member.mention}新しくご加入いただいた方は「閲覧」のみ可能となっております。\n「参加権」をご希望の場合は、こちらで「参加権申請」をお願いいたします。\n申請方法はこちら https://discord.com/channels/1246651972342386791/1420938307914694696/1421462015599312897 またはピン留め')
-
+    await ROBIN_GUILD.UNAPPLIDE_CHANNEL.create_thread(name=f'{member.display_name}', message=f'{member.mention} <@&1421454740646137907>\n参加権申請はこちら https://discord.com/channels/1246651972342386791/1420938307914694696/1421462015599312897', type=discord.ChannelType.private_thread)
+    
 #endregion
 
 ##############################################################################################
