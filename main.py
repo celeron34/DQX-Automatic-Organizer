@@ -16,7 +16,8 @@ from sys import argv, exc_info, executable, exit
 from subprocess import Popen, check_output
 from traceback import extract_tb, format_list
 from re import sub, match
-from os import getcwd, path
+from os import getcwd, path, mkdir
+from glob import glob
 import json
 
 # インテント
@@ -301,6 +302,9 @@ class Guild:
         # self.LIGHTPARTY_EMOJI:discord.Emoji = None
         self.MEMBER_ROLE:discord.Role = None
         self.UNAPPLIDE_MEMBER_ROLE:discord.Role = None # 未申請メンバ
+        self.PRIORITY_ROLE:discord.Role = None # 高速動的参加優先権ロール
+        self.STATIC_PRIORITY_ROLES:set[discord.Role] = None # 静的参加優先権ロール
+        self.MASTER_ROLE:discord.Role = None # マスターロール
         
         self.ROLES:dict[discord.Role, RoleInfo] = None
         # self.ROLES:dict[discord.Role, ]
@@ -364,6 +368,9 @@ async def on_ready():
         }
     ROBIN_GUILD.MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['member'])
     ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['unapplide'])
+    ROBIN_GUILD.PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['priority'])
+    ROBIN_GUILD.STATIC_PRIORITY_ROLES = {ROBIN_GUILD.GUILD.get_role(id) for id in IDs[0]['roles']['staticPriorities']}
+    ROBIN_GUILD.MASTER_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['master'])
     
     await ROBIN_GUILD.COMMAND_CH.purge()
 
@@ -536,10 +543,31 @@ async def on_message_delete(message):
 #region サーバー加入
 @client.event
 async def on_member_join(member:discord.Member):
+    if member.bot: return
     await member.add_roles(ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE)
-    thread = await ROBIN_GUILD.UNAPPLIDE_CHANNEL.create_thread(name=f'{member.display_name}', type=discord.ChannelType.private_thread)
-    await thread.send(f'{member.mention} <@&1421454740646137907>\n新規加入者は**見学のみ**可能です\n効率軍パーティへの参加を希望する場合は、このスレッドで参加権申請をお願いします\n申請方法はこちら https://discord.com/channels/1246651972342386791/1420938307914694696/1421462015599312897\n合わせてこちらもご覧ください https://discord.com/channels/1246651972342386791/1379813214828630137/1379813304096002121')
+    thread = await ROBIN_GUILD.UNAPPLIDE_CHANNEL.create_thread(name=f'{member.display_name}', type=discord.ChannelType.private_thread, invitable=False)
+    await thread.send(f'{member.mention} {ROBIN_GUILD.MASTER_ROLE.mention}')
+    await sendDirectory(f'guilds/{ROBIN_GUILD.GUILD.id}/memberJoin', thread)
     
+#endregion
+
+##############################################################################################
+##############################################################################################
+#region メンバー情報更新
+@client.event
+async def on_member_update(before:discord.Member, after:discord.Member):
+    global ROBIN_GUILD
+    if after.bot: return # ボットを無視
+    diffRole = set(after.roles) - set(before.roles)
+    if diffRole:
+        # ロールが増えた
+        if ROBIN_GUILD.MEMBER_ROLE in diffRole:
+            # メンバロール
+            targetChannels = set(filter(lambda ch:after.id in map(lambda m:m.id, ch.members), ROBIN_GUILD.UNAPPLIDE_CHANNEL.threads))
+            if len(targetChannels) == 1:
+                await sendDirectory(f'guilds/{ROBIN_GUILD.GUILD.id}/addMemberRole', targetChannels.pop())
+            elif len(targetChannels) > 1:
+                print('[Error] on_member_update > メンバロール付与: 2つ以上のスレッドに一致')
 #endregion
 
 ##############################################################################################
@@ -747,6 +775,35 @@ def joinLeaveMembers(guild:discord.Guild, month:delta, exclusionRole:discord.Rol
         if any(map(lambda role:role.position >= exclusionRole.position, targetMember.roles)): continue
         leaveMembers = leaveMembers - targetMember
     return leaveMembers
+
+async def sendDirectory(path:str, targetChannel:discord.Thread|discord.TextChannel):
+    numFiles:list[str] = glob('*', root_dir=path)
+    num = 1
+    while True:
+        imgs:list[discord.File] = []
+        for p in numFiles:
+            if match('^' + str(num) + '+(-[0-9]+)[.]?(png|jpg|jpeg|tiff)$', p) is not None:
+                imgs.append(discord.File(path + '/' + p))
+        for p in imgs:
+            numFiles.remove(p.filename)
+        txt:str = ''
+        for p in numFiles:
+            if match('^' + str(num) + '+(-[0-9]+)?[.](txt|md)$', p) is not None:
+                with open(path + '/' + p, 'r', encoding='utf-8') as f:
+                    txt = f.read()
+                break
+        
+        if txt == '' and imgs == []: break
+        try: await targetChannel.send(txt, files=imgs)
+        except Exception as e:
+            if imgs and txt != '': # 両方ある
+                await targetChannel.send(txt, files=imgs)
+            elif imgs: # イメージがある
+                await targetChannel.send(files=imgs)
+            elif txt != '':
+                await targetChannel.send(txt)
+        num += 1
+
 #endregion
 
 ##############################################################################################
