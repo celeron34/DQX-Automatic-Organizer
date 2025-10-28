@@ -3,4 +3,5 @@ token.json
 IDs.json
 reactionLog
 cache
+guilds
 __pycache__/
