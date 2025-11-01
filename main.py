@@ -880,7 +880,7 @@ def speedFormation2(participants:list[Participant]) -> list[SpeedParty]:
     '''
     priorities:list[Participant] = [p for p in participants
                                     if {ROBIN_GUILD.PRIORITY_ROLE, ROBIN_GUILD.STATIC_PRIORITY_ROLE} & p.roles]
-    normals:list[Participant] = [set(participants) - priorities]
+    normals:list[Participant] = [set(participants) - set(priorities)]
     parties:list[SpeedParty] = []
     parties.append(SpeedParty(len(parties)+1, {role:info.count for role, info in ROBIN_GUILD.ROLES.items()}))
     loopFlg = True
