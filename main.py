@@ -635,8 +635,17 @@ async def loop():
             # 編成
             shuffle(participants)
             print(f'shaffled: {[participant.display_name for participant in participants]}')
-            for party in speedFormation(participants):
-                ROBIN_GUILD.parties.append(party)
+            participantsCopy = participants.copy()
+            try:
+                for party in speedFormation2(participants):
+                    ROBIN_GUILD.parties.append(party)
+            except Exception as e:
+                try:await ROBIN_GUILD.DEV_CH.send('優先権高速編成に失敗')
+                except Exception: pass
+                printTraceback(e)
+                participants = participantsCopy.copy()
+                for party in speedFormation(participants):
+                    ROBIN_GUILD.parties.append(party)
             for party in lightFormation(participants, len(ROBIN_GUILD.parties)):
                 ROBIN_GUILD.parties.append(party)
             print(f'formation algorithm time: {dt.now() - formationStartTime}')
@@ -678,19 +687,24 @@ async def loop():
             printTraceback(e)
 
         # 優先権操作
-        if any(map(lambda party:isinstance(party, SpeedParty) , ROBIN_GUILD.parties)):
-            for party in ROBIN_GUILD.parties: # パーティループ
-                if isinstance(party, SpeedParty): # 高速パーティ
-                    for participants in party.members.values(): # ロールループ
-                        for participant in participants: # ユーザーループ
+        try:
+            if any(map(lambda party:isinstance(party, SpeedParty) , ROBIN_GUILD.parties)):
+                for party in ROBIN_GUILD.parties: # パーティループ
+                    if isinstance(party, SpeedParty): # 高速パーティ
+                        for participants in party.members.values(): # ロールループ
+                            for participant in participants: # ユーザーループ
+                                if ROBIN_GUILD.STATIC_PRIORITY_ROLE not in participant.user.roles:
+                                    # 静的優先権を持っているなら動的優先権は付与しない
+                                    participant.user.add_roles(ROBIN_GUILD.PRIORITY_ROLE) # 動的優先権付与
+                    elif isinstance(party, LightParty): # 通常パーティ
+                        for participant in party.members: # ユーザーループ
                             if ROBIN_GUILD.STATIC_PRIORITY_ROLE not in participant.user.roles:
                                 # 静的優先権を持っているなら動的優先権は付与しない
                                 participant.user.add_roles(ROBIN_GUILD.PRIORITY_ROLE) # 動的優先権付与
-                elif isinstance(party, LightParty): # 通常パーティ
-                    for participant in party.members: # ユーザーループ
-                        if ROBIN_GUILD.STATIC_PRIORITY_ROLE not in participant.user.roles:
-                            # 静的優先権を持っているなら動的優先権は付与しない
-                            participant.user.add_roles(ROBIN_GUILD.PRIORITY_ROLE) # 動的優先権付与
+        except Exception as e:
+            try: await ROBIN_GUILD.DEV_CH.send('優先権操作に失敗')
+            except Exception: pass
+            printTraceback(e)
 
         print('#==================================================================#')
 
@@ -823,6 +837,41 @@ async def sendDirectory(path:str, targetChannel:discord.Thread|discord.TextChann
 ##############################################################################################
 #region パーティ編成アルゴリズム
 def speedFormation(participants:list[Participant]) -> list[SpeedParty]:
+    '''
+    <h1>Parameter</h1>
+    players: list[Participant]
+    <h1>Return</h1>
+    List[List[Participant]]
+    '''
+    parties:list[SpeedParty] = []
+    parties.append(SpeedParty(len(parties)+1, {role:info.count for role, info in ROBIN_GUILD.ROLES.items()}))
+    loopFlg = True
+    while loopFlg:
+        partyNoneCount = parties[-1].noneCount()
+        if partyNoneCount > len(participants) or partyNoneCount == 0 and len(participants) < 8: break
+        if partyNoneCount == 0: # 空きのあるパーティがない 新しい空のパーティを作る
+            parties.append(SpeedParty(len(parties)+1, {role:info.count for role, info in ROBIN_GUILD.ROLES.items()}))
+        for participantNum in range(len(participants)):
+            if addHispeedParty(parties, participants[participantNum]):
+                del participants[participantNum]
+                break
+            # 計算量短縮を図ったけどムリかも
+            # if len(participants) - participantNum < partyNoneCount:
+            #     loopFlg = False
+            #     break
+        else: loopFlg = False
+    
+    # 未完成パーティ or 余りが一人の場合 パーティの解体
+    if any(map(lambda x:None in x, parties[-1].members.values())) or len(participants) == 1:
+        for role, partyMembers in parties[-1].members.items():
+            for partyMember in partyMembers:
+                if isinstance(partyMember, Participant):
+                    participants.insert(0, partyMember)
+        del parties[-1]
+    
+    return parties
+
+def speedFormation2(participants:list[Participant]) -> list[SpeedParty]:
     '''
     <h1>Parameter</h1>
     players: list[Participant]
