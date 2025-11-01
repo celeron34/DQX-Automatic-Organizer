@@ -637,7 +637,7 @@ async def loop():
             print(f'shaffled: {[participant.display_name for participant in participants]}')
             for party in speedFormation(participants):
                 ROBIN_GUILD.parties.append(party)
-            for party in lowspeedFormation(participants, len(ROBIN_GUILD.parties)):
+            for party in lightFormation(participants, len(ROBIN_GUILD.parties)):
                 ROBIN_GUILD.parties.append(party)
             print(f'formation algorithm time: {dt.now() - formationStartTime}')
 
@@ -676,6 +676,21 @@ async def loop():
                         await party.message.edit(party.getPartyMessage(ROBIN_GUILD.ROLES))
         except Exception as e:
             printTraceback(e)
+
+        # 優先権操作
+        if any(map(lambda party:isinstance(party, SpeedParty) , ROBIN_GUILD.parties)):
+            for party in ROBIN_GUILD.parties: # パーティループ
+                if isinstance(party, SpeedParty): # 高速パーティ
+                    for participants in party.members.values(): # ロールループ
+                        for participant in participants: # ユーザーループ
+                            if ROBIN_GUILD.STATIC_PRIORITY_ROLE not in participant.user.roles:
+                                # 静的優先権を持っているなら動的優先権は付与しない
+                                participant.user.add_roles(ROBIN_GUILD.PRIORITY_ROLE) # 動的優先権付与
+                elif isinstance(party, LightParty): # 通常パーティ
+                    for participant in party.members: # ユーザーループ
+                        if ROBIN_GUILD.STATIC_PRIORITY_ROLE not in participant.user.roles:
+                            # 静的優先権を持っているなら動的優先権は付与しない
+                            participant.user.add_roles(ROBIN_GUILD.PRIORITY_ROLE) # 動的優先権付与
 
         print('#==================================================================#')
 
@@ -870,7 +885,7 @@ def addHispeedParty(parties:list[SpeedParty], participant:Participant, roles:set
     else: # どのパーティでも交代できない
         return False
     
-def lowspeedFormation(participants:list[Participant], partyIndex:int) -> list[LightParty]:
+def lightFormation(participants:list[Participant], partyIndex:int) -> list[LightParty]:
     if len(participants) == 0: return []
     partiesNum = roundUp(len(participants) / 4) # Number of パーティ
     partyNum = len(participants) // partiesNum # パーティ当たりの人数
