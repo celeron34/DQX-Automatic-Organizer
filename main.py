@@ -8,10 +8,9 @@ from datetime import datetime as dt, timedelta as delta
 from asyncio import sleep
 # from asyncio import get_running_loop, create_task
 # from concurrent.futures import ThreadPoolExecutor
-from random import shuffle, randint
+from random import shuffle, randint, random
 from typing import Any
 from time import perf_counter
-from random import shuffle
 from sys import argv, exc_info, executable, exit
 from subprocess import Popen, check_output
 from traceback import extract_tb, format_list
@@ -303,7 +302,7 @@ class Guild:
         self.MEMBER_ROLE:discord.Role = None
         self.UNAPPLIDE_MEMBER_ROLE:discord.Role = None # 未申請メンバ
         self.PRIORITY_ROLE:discord.Role = None # 高速動的参加優先権ロール
-        self.STATIC_PRIORITY_ROLES:set[discord.Role] = None # 静的参加優先権ロール
+        self.STATIC_PRIORITY_ROLE:discord.Role = None # 静的参加優先権ロール
         self.MASTER_ROLE:discord.Role = None # マスターロール
         
         self.ROLES:dict[discord.Role, RoleInfo] = None
@@ -331,9 +330,9 @@ async def on_ready():
 
     # beta 1346195417808896041
     ROBIN_GUILD.PARTY_CH      = client.get_channel(IDs[0]['channels']['party'])
-    ROBIN_GUILD.PARTY_CH_beta = client.get_channel(1346195417808896041)
-    ROBIN_GUILD.PARTY_LOG     = client.get_channel(1353638340456484916)
-    ROBIN_GUILD.DEV_CH        = client.get_channel(1365285325810962534)
+    ROBIN_GUILD.PARTY_CH_beta = client.get_channel(IDs[0]['channels']['party-beta'])
+    ROBIN_GUILD.PARTY_LOG     = client.get_channel(IDs[0]['channels']['party-log'])
+    ROBIN_GUILD.DEV_CH        = client.get_channel(IDs[0]['channels']['develop'])
     ROBIN_GUILD.COMMAND_CH    = client.get_channel(IDs[0]['channels']['command'])
     ROBIN_GUILD.UNAPPLIDE_CHANNEL = client.get_channel(IDs[0]['channels']['unapplide'])
 
@@ -369,7 +368,7 @@ async def on_ready():
     ROBIN_GUILD.MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['member'])
     ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['unapplide'])
     ROBIN_GUILD.PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['priority'])
-    ROBIN_GUILD.STATIC_PRIORITY_ROLES = {ROBIN_GUILD.GUILD.get_role(id) for id in IDs[0]['roles']['staticPriorities']}
+    ROBIN_GUILD.STATIC_PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['staticPriority'])
     ROBIN_GUILD.MASTER_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['master'])
     
     await ROBIN_GUILD.COMMAND_CH.purge()
@@ -636,9 +635,10 @@ async def loop():
             # 編成
             shuffle(participants)
             print(f'shaffled: {[participant.display_name for participant in participants]}')
-            for party in hispeedFormation(participants):
+            participantsCopy = participants.copy()
+            for party in speedFormation(participants):
                 ROBIN_GUILD.parties.append(party)
-            for party in lowspeedFormation(participants, len(ROBIN_GUILD.parties)):
+            for party in lightFormation(participants, len(ROBIN_GUILD.parties)):
                 ROBIN_GUILD.parties.append(party)
             print(f'formation algorithm time: {dt.now() - formationStartTime}')
 
@@ -676,6 +676,50 @@ async def loop():
                     if party.aliance:
                         await party.message.edit(party.getPartyMessage(ROBIN_GUILD.ROLES))
         except Exception as e:
+            printTraceback(e)
+
+        # テスト編成
+        participants = []
+        priorities:list[Participant] = [p for p in participantsCopy
+                                        if {ROBIN_GUILD.PRIORITY_ROLE, ROBIN_GUILD.STATIC_PRIORITY_ROLE} & p.roles]
+        normals:list[Participant] = [set(participantsCopy) - set(priorities)]
+        if len(normals) == 0:
+            bias = 0
+        else:
+            bias = len(priorities) / len(normals) * 2
+        while True:
+            participant = pickParticipant(priorities, normals, bias)
+            if participant is None: break
+            participants.append(participant)
+        parties:list[SpeedParty|LightParty] = []
+        try:
+            for party in speedFormation(participants):
+                parties.append(party)
+            for party in lightFormation(participants, len(parties)):
+                parties.append(party)
+            for party in parties:
+                await ROBIN_GUILD.PARTY_CH_beta.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
+        except Exception as e:
+            printTraceback(e)
+
+        # 優先権操作
+        try:
+            if any(map(lambda party:isinstance(party, SpeedParty) , ROBIN_GUILD.parties)):
+                for party in ROBIN_GUILD.parties: # パーティループ
+                    if isinstance(party, SpeedParty): # 高速パーティ
+                        for participants in party.members.values(): # ロールループ
+                            for participant in participants: # ユーザーループ
+                                if ROBIN_GUILD.STATIC_PRIORITY_ROLE not in participant.user.roles:
+                                    # 静的優先権を持っているなら動的優先権は付与しない
+                                    participant.user.add_roles(ROBIN_GUILD.PRIORITY_ROLE) # 動的優先権付与
+                    elif isinstance(party, LightParty): # 通常パーティ
+                        for participant in party.members: # ユーザーループ
+                            if ROBIN_GUILD.STATIC_PRIORITY_ROLE not in participant.user.roles:
+                                # 静的優先権を持っているなら動的優先権は付与しない
+                                participant.user.add_roles(ROBIN_GUILD.PRIORITY_ROLE) # 動的優先権付与
+        except Exception as e:
+            try: await ROBIN_GUILD.DEV_CH.send('優先権操作に失敗')
+            except Exception: pass
             printTraceback(e)
 
         print('#==================================================================#')
@@ -808,7 +852,7 @@ async def sendDirectory(path:str, targetChannel:discord.Thread|discord.TextChann
 
 ##############################################################################################
 #region パーティ編成アルゴリズム
-def hispeedFormation(participants:list[Participant]) -> list[SpeedParty]:
+def speedFormation(participants:list[Participant]) -> list[SpeedParty]:
     '''
     <h1>Parameter</h1>
     players: list[Participant]
@@ -839,7 +883,6 @@ def hispeedFormation(participants:list[Participant]) -> list[SpeedParty]:
             for partyMember in partyMembers:
                 if isinstance(partyMember, Participant):
                     participants.insert(0, partyMember)
-                    # participants = [partyMember] + participants
         del parties[-1]
     
     return parties
@@ -865,7 +908,7 @@ def addHispeedParty(parties:list[SpeedParty], participant:Participant, roles:set
     else: # どのパーティでも交代できない
         return False
     
-def lowspeedFormation(participants:list[Participant], partyIndex:int) -> list[LightParty]:
+def lightFormation(participants:list[Participant], partyIndex:int) -> list[LightParty]:
     if len(participants) == 0: return []
     partiesNum = roundUp(len(participants) / 4) # Number of パーティ
     partyNum = len(participants) // partiesNum # パーティ当たりの人数
@@ -890,6 +933,25 @@ def roundUp(value:float):
     roundValue = round(value)
     if value - roundValue > 0: roundValue += 1
     return roundValue
+
+def pickParticipant(priorityPool:list[Participant], normalPool:list[Participant], bias:int) -> Participant:
+    if len(priorityPool) == 0:
+        if len(normalPool) == 0:
+            return None
+        return normalPool.pop(0)
+    if len(normalPool) == 0:
+        return priorityPool.pop(0)
+    if random() > 1 / (bias + 1):
+        # 優先側
+        return priorityPool.pop(0)
+    else:
+        return normalPool.pop(0)
+    
+def revertParticipant(priorityPool:list[Participant], normalPool:list[Participant], participant:Participant):
+    if set(ROBIN_GUILD.PRIORITY_ROLE, ROBIN_GUILD.STATIC_PRIORITY_ROLE) & participant.roles:
+        priorityPool.insert(0, participant)
+    else:
+        normalPool.insert(0, participant)
 
 ##############################################################################################
 ## エラーキャッチ
