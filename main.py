@@ -1144,7 +1144,7 @@ class RecruitView(discord.ui.View):
         super().__init__(*items, timeout=timeout, disable_on_timeout = disable_on_timeout)
     def on_timeout(self):
         buttonAllDisable(self.children)
-    @discord.ui.button(label='参加[beta]', style=discord.ButtonStyle.blurple)
+    @discord.ui.button(label='参加 [beta]', style=discord.ButtonStyle.green)
     async def joinReclute(self, button:discord.ui.Button, interaction:discord.Interaction):
         # 未参加であれば追加
         if interaction.user in ROBIN_GUILD.RECLUTING_MEMBER:
@@ -1157,7 +1157,7 @@ class RecruitView(discord.ui.View):
                 f'参加を受け付けましたがテスト中ですので、編成に失敗する恐れがあります。\n念のために{ROBIN_GUILD.RECLUTING_EMOJI}リアクションもしておくと確実です。',
                 ephemeral=True, delete_after=5)
 
-    @discord.ui.button(label='辞退[beta]', style=discord.ButtonStyle.red)
+    @discord.ui.button(label='辞退 [beta]', style=discord.ButtonStyle.red)
     async def leaveReclute(self, button:discord.ui.Button, interaction:discord.Interaction):
         # 既に参加しているなら削除
         if interaction.user in ROBIN_GUILD.RECLUTING_MEMBER:
