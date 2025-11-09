@@ -306,6 +306,7 @@ class Guild:
         self.MASTER_ROLE:discord.Role = None # マスターロール
         
         self.ROLES:dict[discord.Role, RoleInfo] = None
+        self.RECLUTING_MEMBER:set[discord.Member] = set() # 募集参加メンバ
         # self.ROLES:dict[discord.Role, ]
 
         # self.formation:Formation = None # パーティ編成クラス
@@ -584,7 +585,14 @@ async def loop():
     if now == ROBIN_GUILD.timeTable[0] - delta(minutes=30):
         # パーティ編成クラスをインスタンス化，メッセージ送信
         print(f'################### {dt.now()} Recluting ###################')
-        ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.send(ROBIN_GUILD.timeTable[0].strftime('# 【異星周回 %H時】\n参加希望は<:sanka:1345708506111545375>リアクション願います')) # 募集文
+        try: # ボタン付き募集文テスト
+            ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.send(
+                ROBIN_GUILD.timeTable[0].strftime('# 【異星周回 %H時】\n参加希望は<:sanka:1345708506111545375>リアクション願います'),
+                view=RecruitView(timeout=60*(60*10), disable_on_timeout=False)) # 募集文
+        except Exception as e:
+            printTraceback(e)
+            ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.send(
+                ROBIN_GUILD.timeTable[0].strftime('# 【異星周回 %H時】\n参加希望は<:sanka:1345708506111545375>リアクション願います'))
         await ROBIN_GUILD.reclutingMessage.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI) # 参加リアクション追加
         # await ROBIN_GUILD.reclutingMessage.add_reaction(ROBIN_GUILD.LIGHTPARTY_EMOJI) # ライトパーティリアクション追加
         # await ROBIN_GUILD.reclutingMessage.add_reaction(ROBIN_GUILD.FULLPARTY_EMOJI) # フルパーティリアクション追加
@@ -609,7 +617,16 @@ async def loop():
             # 値取得
             await ROBIN_GUILD.GUILD.chunk()
             ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.fetch_message(ROBIN_GUILD.reclutingMessage.id)
-            participants:list[Participant] = list()
+            try:
+                participants:list[Participant] = list(
+                    map(
+                        lambda user:Participant(user, {role for role in user.roles if role in ROBIN_GUILD.ROLES.keys()}),
+                        ROBIN_GUILD.RECLUTING_MEMBER
+                        )
+                    )
+            except Exception as e:
+                printTraceback(e)
+                participants = []
             for reaction in ROBIN_GUILD.reclutingMessage.reactions:
                 if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
                     async for user in reaction.users():
@@ -1142,6 +1159,33 @@ async def createNewParty(user:discord.Member, free:bool=False):
     newParty.threadControlMessage = await newParty.thread.send(view=PartyView(timeout=timeout.seconds))
     await newParty.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
     ROBIN_GUILD.parties.append(newParty)
+
+class RecruitView(discord.ui.View):
+    def __init__(self, *items, timeout=None, disable_on_timeout=True):
+        super().__init__(*items, timeout=timeout, disable_on_timeout = disable_on_timeout)
+    def on_timeout(self):
+        buttonAllDisable(self.children)
+    @discord.ui.button(label='参加[beta]', style=discord.ButtonStyle.blurple)
+    async def joinReclute(self, button:discord.ui.Button, interaction:discord.Interaction):
+        # 未参加であれば追加
+        if interaction.user in ROBIN_GUILD.RECLUTING_MEMBER:
+            await interaction.response.send_message(
+                f'参加済ですがテスト中ですので、編成に失敗する恐れがあります。\n念のために{ROBIN_GUILD.RECLUTING_EMOJI}リアクションもしておくと確実です。',
+                ephemeral=True, delete_after=5)
+        else:
+            ROBIN_GUILD.RECLUTING_MEMBER.add(interaction.user)
+            await interaction.response.send_message(
+                f'参加を受け付けましたがテスト中ですので、編成に失敗する恐れがあります。\n念のために{ROBIN_GUILD.RECLUTING_EMOJI}リアクションもしておくと確実です。',
+                ephemeral=True, delete_after=5)
+
+    @discord.ui.button(label='辞退[beta]', style=discord.ButtonStyle.red)
+    async def leaveReclute(self, button:discord.ui.Button, interaction:discord.Interaction):
+        # 既に参加しているなら削除
+        if interaction.user in ROBIN_GUILD.RECLUTING_MEMBER:
+            ROBIN_GUILD.RECLUTING_MEMBER.remove(interaction.user)
+            await interaction.response.send_message('辞退を受け付けました', ephemeral=True, delete_after=5)
+        else:
+            await interaction.response.send_message('辞退済です', ephemeral=True, delete_after=5)
 
 class RebootView(discord.ui.View):
     def __init__(self, *items, timeout=None, disable_on_timeout=True):
