@@ -618,6 +618,7 @@ async def loop():
                     async for user in reaction.users():
                         if user == client.user: continue
                         if ROBIN_GUILD.MEMBER_ROLE not in user.roles: continue
+                        if user in map(lambda x:x.user, participants): continue # 既に参加者リストにいるならスキップ
                         roles = {role for role in user.roles if role in ROBIN_GUILD.ROLES.keys()}
                         participant = Participant(user, roles)
                         participants.append(participant)
