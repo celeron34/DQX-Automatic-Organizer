@@ -574,7 +574,7 @@ async def loop():
         try: # ボタン付き募集文テスト
             ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.send(
                 ROBIN_GUILD.timeTable[0].strftime(f'# 【異星周回 %H時】\n参加希望は{ROBIN_GUILD.RECLUTING_EMOJI}リアクション願います'),
-                view=RecruitView(timeout=60*(60*10), disable_on_timeout=False)) # 募集文
+                view=RecruitView(timeout=60*20, disable_on_timeout=False)) # 募集文
         except Exception as e:
             printTraceback(e)
             ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.send(
@@ -1144,26 +1144,41 @@ class RecruitView(discord.ui.View):
         super().__init__(*items, timeout=timeout, disable_on_timeout = disable_on_timeout)
     def on_timeout(self):
         buttonAllDisable(self.children)
-    @discord.ui.button(label='参加[beta]', style=discord.ButtonStyle.blurple)
+    @discord.ui.button(label='参加 [beta]', style=discord.ButtonStyle.green)
     async def joinReclute(self, button:discord.ui.Button, interaction:discord.Interaction):
+        now = dt.now()
         # 未参加であれば追加
         if interaction.user in ROBIN_GUILD.RECLUTING_MEMBER:
+            print(f'{now} Recruit button from {interaction.user.display_name} but already joined')
             await interaction.response.send_message(
                 f'参加済ですがテスト中ですので、編成に失敗する恐れがあります。\n念のために{ROBIN_GUILD.RECLUTING_EMOJI}リアクションもしておくと確実です。',
                 ephemeral=True, delete_after=5)
         else:
+            print(f'{now} Recruit button from {interaction.user.display_name}')
             ROBIN_GUILD.RECLUTING_MEMBER.add(interaction.user)
             await interaction.response.send_message(
                 f'参加を受け付けましたがテスト中ですので、編成に失敗する恐れがあります。\n念のために{ROBIN_GUILD.RECLUTING_EMOJI}リアクションもしておくと確実です。',
                 ephemeral=True, delete_after=5)
+            sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :red_square: {interaction.user.display_name}\n現在の参加者:'
+            for member in ROBIN_GUILD.RECLUTING_MEMBER:
+                sendMessage += f' {member.display_name}'
+            await ROBIN_GUILD.DEV_CH.send(sendMessage)
 
-    @discord.ui.button(label='辞退[beta]', style=discord.ButtonStyle.red)
+    @discord.ui.button(label='辞退 [beta]', style=discord.ButtonStyle.red)
     async def leaveReclute(self, button:discord.ui.Button, interaction:discord.Interaction):
         # 既に参加しているなら削除
+        now = dt.now()
         if interaction.user in ROBIN_GUILD.RECLUTING_MEMBER:
+            print(f'{now} Reclute leave button from {interaction.user.display_name}')
             ROBIN_GUILD.RECLUTING_MEMBER.remove(interaction.user)
             await interaction.response.send_message('辞退を受け付けました', ephemeral=True, delete_after=5)
+            sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :blue_square: {interaction.user.display_name}\n現在の参加者:'
+            for member in ROBIN_GUILD.RECLUTING_MEMBER:
+                sendMessage += f' {member.display_name}'
+            await ROBIN_GUILD.DEV_CH.send(sendMessage)
+
         else:
+            print(f'{now} Reclute leave button from {interaction.user.display_name} but not joined')
             await interaction.response.send_message('辞退済です', ephemeral=True, delete_after=5)
 
 class RebootView(discord.ui.View):
