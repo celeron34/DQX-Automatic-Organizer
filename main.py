@@ -5,7 +5,7 @@ import discord
 from discord.ext import tasks, commands
 from dqx_ise import getTable
 from datetime import datetime as dt, timedelta as delta
-from asyncio import sleep
+from asyncio import sleep, create_task
 # from asyncio import get_running_loop, create_task
 # from concurrent.futures import ThreadPoolExecutor
 from random import shuffle, randint, random
@@ -229,10 +229,7 @@ class LightParty(Party):
         return False
     
     def isMember(self, user:discord.Member):
-        try: return user in map(lambda x:x.user ,self.members)
-        except Exception as e:
-            printTraceback(e)
-            return False
+        return user in map(lambda x:x.user ,self.members)
     
     def isEmpty(self) -> bool:
         return all(map(lambda member: not isinstance(member, Participant), self.members))
@@ -278,6 +275,9 @@ class SpeedParty(Party):
                     self.members[role][memberIndex] = None
                     return True
         return False
+
+    def isMember(self, user:discord.Member):
+        return any(map(lambda members:user in map(lambda x:x.user, members), self.members.values()))
 
 class Guild:
     def __init__(self, guild):
@@ -403,65 +403,23 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
 
     print(f'{dt.now()} recive reaction add {user} {reaction.emoji.name}')
 
-    # 募集メッセージに対して
-    # if reaction.message == ROBIN_GUILD.reclutingMessage:
-    #     if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
-    #         ROBIN_GUILD.formation.addMember(user)
-    #         return
-    #     elif reaction.emoji == ROBIN_GUILD.FULLPARTY_EMOJI:
-    #         return
-    #     else:
-    #         # 想定しないリアクションを削除
-    #         await reaction.message.remove_reaction(reaction.emoji, user)
-    #     return
-    
     # 途中参加申請
     if ROBIN_GUILD.parties != None:
+        print(f'{dt.now()} {user} Join request to F')
+        # 参加権チェック
+        if not await checkParticipationRight(user, reaction.message.channel):
+            await reaction.message.remove_reaction(reaction.emoji, user)
+            return
         # 途中自動参加
         if reaction.message == ROBIN_GUILD.reclutingMessage:
-            print('Join request to F')
-            if isPartyMember(user):
-                minParty:LightParty|None = None
-                for party in ROBIN_GUILD.parties:
-                    if isinstance(party, LightParty):
-                        if (minParty == None or \
-                                minParty.membersNum() + len(minParty.joins) > \
-                                party.membersNum() + len(party.joins)) and \
-                                party.membersNum() + len(party.joins) <= 3:
-                            minParty = party
-                if minParty == None:
-                    await createNewParty(user)
-                else:
-                    await minParty.joinRequest(user)
-
+            # パーティメンバでなければ自動参加
+            if not any(map(lambda party:party.isMember(user), ROBIN_GUILD.parties)):
+                await autoJoinParticipant(user)
         # パーティメッセージ
         elif reaction.message in map(lambda x:x.message, ROBIN_GUILD.parties) and reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
-            ####################################################################
-            # party = searchLightParty(reaction.message, ROBIN_GUILD.parties)
-            # party.joinRequest(user)
-            ####################################################################
-            try:
-                # party = searchLightParty(message, ROBIN_GUILD.parties, lambda x:[x.message])
-                party:LightParty = searchLightParty(reaction.message, ROBIN_GUILD.parties)
-                await party.joinRequest(user)
-                # if user.id not in map(lambda x:x.id, party.members): # 別のパーティ
-                #     if len(party.members) > 0: # 誰か１人でもいる場合 承認要請
-                #         await party.joinRequest(user)
-                #         thread = reaction.message.thread
-                #         if thread == None:
-                #             message = await ROBIN_GUILD.PARTY_CH.fetch_message(reaction.message.id)
-                #             thread = message.thread
-                #         party.joins[await thread.send(f'@here {user.display_name} から加入申請', view=ApproveView(timeout=600))] = user
-                #     else:
-                #         await reaction.message.remove_reaction(reaction.emoji, user)
-                #         await party.joinMember(Participant(user, set(role for role in user.roles if role in ROBIN_GUILD.ROLES.keys())))
-                #         # await joinParticipant(Participant(user, set(role for role in user.roles if role in ROBIN_GUILD.ROLES.keys())), party)
-                # else:
-                #     await reaction.message.remove_reaction(reaction.emoji, user)
-                #     errorMessage = await reaction.message.channel.send(f'{user.mention}加入中のパーティには参加申請できません')
-                #     await errorMessage.delete(delay=5)
-            except Exception as e:
-                printTraceback(e)
+            # 通常参加申請
+            party:LightParty = searchLightParty(reaction.message, ROBIN_GUILD.parties)
+            await party.joinRequest(user)
 
 ##############################################################################################
 ## 
@@ -862,6 +820,33 @@ async def sendDirectory(path:str, targetChannel:discord.Thread|discord.TextChann
                 await targetChannel.send(txt)
         num += 1
 
+# 参加権チェック
+async def checkParticipationRight(sender:discord.Member|discord.Interaction, channel:discord.TextChannel=None) -> bool:
+    global ROBIN_GUILD
+    if isinstance(sender, discord.Interaction):
+        member = sender.user
+    if ROBIN_GUILD.MEMBER_ROLE not in member.roles:
+        if isinstance(sender, discord.Interaction):
+            await sender.response.send_message(f'{member.mention} 参加権がありません', ephemeral=True)
+        elif isinstance(sender, discord.Member) and channel is not None:
+            await channel.send(f'{member.mention} 参加権がありません', delete_after=10)
+        return False
+    return True
+
+async def autoJoinParticipant(user:discord.Member):
+    '''最小パーティに参加申請'''
+    global ROBIN_GUILD
+    minParty:LightParty|None = None
+    for party in ROBIN_GUILD.parties:
+        if isinstance(party, LightParty):
+            if ((minParty == None or minParty.membersNum() + len(minParty.joins) > party.membersNum() + len(party.joins))
+                and party.membersNum() + len(party.joins) < 4):
+                minParty = party
+    if minParty == None:
+        await createNewParty(user)
+    else:
+        await minParty.joinRequest(user)
+
 #endregion
 
 ##############################################################################################
@@ -1117,16 +1102,24 @@ class FormationTopView(discord.ui.View):
         self.startTime = perf_counter()
     @discord.ui.button(label='新規パーティ生成', style=discord.ButtonStyle.blurple)
     async def newPartyButton(self, button:discord.ui.Button, interaction:discord.Interaction):
-        if ROBIN_GUILD.MEMBER_ROLE not in interaction.user.roles:
-            await interaction.response.send_message(f'{interaction.user.mention}\n参加権がありません https://discord.com/channels/1246651972342386791/1420938307914694696 で参加権申請してください', delete_after=5, ephemeral=True)
-            return
         print(f'{dt.now()} New Party button from {interaction.user.display_name}')
-        await interaction.response.defer()
-        if all({interaction.user.id not in map(lambda party:map(lambda member:member.id, party.members), ROBIN_GUILD.parties)}):
-            await createNewParty(interaction.user, free=True)
-        else:
-            await interaction.response.send_message(f'{interaction.user.mention}\nパーティメンバは新規パーティを生成できません', delete_after=5, ephemeral=True)
-            
+        if not checkParticipationRight(interaction.user):
+            return
+        user = interaction.user
+        # SpeedParty に所属しているなら新規作成を禁止
+        if ROBIN_GUILD.parties and any(p.isMember(user) for p in ROBIN_GUILD.parties if isinstance(p, SpeedParty)):
+            await interaction.response.send_message(f'{user.mention}\n高速パーティメンバは新規パーティを生成できません', delete_after=5, ephemeral=True)
+            return
+
+        # LightParty に所属しているなら既存パーティから抜ける（通常は1つだけ）
+        if ROBIN_GUILD.parties:
+            for party in list(ROBIN_GUILD.parties):
+                if isinstance(party, LightParty) and party.isMember(user):
+                    await party.removeMember(user)
+                    break
+
+        await createNewParty(user, free=True)
+
 async def createNewParty(user:discord.Member, free:bool=False):
     if len(ROBIN_GUILD.parties) == 0: newPartyNum = 1
     else: newPartyNum = max(map(lambda x:x.number, ROBIN_GUILD.parties)) + 1
@@ -1211,12 +1204,6 @@ def buttonAllDisable(children):
     for child in children:
         if isinstance(child, discord.ui.Button):
             child.disabled = True
-
-def isPartyMember(user:discord.Member) -> bool:
-    for party in ROBIN_GUILD.parties:
-        if any(map(lambda x:x.user==user, party.members)):
-            return False
-    return True
 
 #endregion
 
