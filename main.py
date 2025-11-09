@@ -243,7 +243,10 @@ class SpeedParty(Party):
         self.members:dict[discord.Role,list[Participant|None]] = {role:[None] * num for role, num in rolesNum.items()}
 
     def getPartyMessage(self, guildRolesEmoji:dict[discord.Role,RoleInfo]) -> str:
-        msg = f'\| <:FullParty:1345733070065500281> 高速パーティ:{self.number} <:FullParty:1345733070065500281>'
+        if ROBIN_GUILD.FULLPARTY_EMOJI:
+            msg = f'\| {ROBIN_GUILD.FULLPARTY_EMOJI} 高速パーティ:{self.number} {ROBIN_GUILD.FULLPARTY_EMOJI}'
+        else:
+            msg = f'\| 高速パーティ:{self.number}'
         blockCount = 0
         for partyRole, members in self.members.items():
             if blockCount == 4: msg += '\n-# = = = = = = = = = = = = = ='
@@ -299,7 +302,7 @@ class Guild:
         # リアクション
         self.RECLUTING_EMOJI:discord.Emoji = None # 参加リアクション
         self.FULLPARTY_EMOJI:discord.Emoji = None
-        # self.LIGHTPARTY_EMOJI:discord.Emoji = None
+        self.LIGHTPARTY_EMOJI:discord.Emoji = None
         self.MEMBER_ROLE:discord.Role = None
         self.UNAPPLIDE_MEMBER_ROLE:discord.Role = None # 未申請メンバ
         self.PRIORITY_ROLE:discord.Role = None # 高速動的参加優先権ロール
@@ -346,6 +349,8 @@ async def on_ready():
 
         # 絵文字ゲット
         ROBIN_GUILD.RECLUTING_EMOJI =  client.get_emoji(guildInfo['emojis']['recluting'])
+        ROBIN_GUILD.FULLPARTY_EMOJI =  client.get_emoji(guildInfo['emojis']['fullparty'])
+        ROBIN_GUILD.LIGHTPARTY_EMOJI = client.get_emoji(guildInfo['emojis']['lightparty'])
 
         ROBIN_GUILD.ROLES = {
                 ROBIN_GUILD.GUILD.get_role(roleInfo['role']) : \
@@ -570,12 +575,12 @@ async def loop():
         print(f'################### {dt.now()} Recluting ###################')
         try: # ボタン付き募集文テスト
             ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.send(
-                ROBIN_GUILD.timeTable[0].strftime('# 【異星周回 %H時】\n参加希望は<:sanka:1345708506111545375>リアクション願います'),
+                ROBIN_GUILD.timeTable[0].strftime(f'# 【異星周回 %H時】\n参加希望は{ROBIN_GUILD.RECLUTING_EMOJI}リアクション願います'),
                 view=RecruitView(timeout=60*(60*10), disable_on_timeout=False)) # 募集文
         except Exception as e:
             printTraceback(e)
             ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.send(
-                ROBIN_GUILD.timeTable[0].strftime('# 【異星周回 %H時】\n参加希望は<:sanka:1345708506111545375>リアクション願います'))
+                ROBIN_GUILD.timeTable[0].strftime(f'# 【異星周回 %H時】\n参加希望は{ROBIN_GUILD.RECLUTING_EMOJI}リアクション願います'))
         await ROBIN_GUILD.reclutingMessage.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI) # 参加リアクション追加
         # await ROBIN_GUILD.reclutingMessage.add_reaction(ROBIN_GUILD.LIGHTPARTY_EMOJI) # ライトパーティリアクション追加
         # await ROBIN_GUILD.reclutingMessage.add_reaction(ROBIN_GUILD.FULLPARTY_EMOJI) # フルパーティリアクション追加
@@ -646,7 +651,7 @@ async def loop():
             print('participants')
             print([participant.display_name for participant in participants])
             
-            await ROBIN_GUILD.PARTY_LOG.send(f'{ROBIN_GUILD.timeTable[0].strftime("%y-%m-%d-%H")} <:sanka:1345708506111545375> {participantNum}')
+            await ROBIN_GUILD.PARTY_LOG.send(f'{ROBIN_GUILD.timeTable[0].strftime("%y-%m-%d-%H")} {ROBIN_GUILD.RECLUTING_EMOJI} {participantNum}')
 
         # typingここまで
 
@@ -756,15 +761,15 @@ async def loop():
         ROBIN_GUILD.parties = None
         ROBIN_GUILD.reclutingMessage = None
         
-    if (now + delta(minutes=1)).month == now.month + 1: # 1分後が来月 -> 明日が1日の23:59
-        members = joinLeaveMembers(ROBIN_GUILD.GUILD, 3, ROBIN_GUILD.GUILD.get_role(1246989946263306302))
-        msg = '3か月不参加メンバ:'
-        if members:
-            for member in members:
-                msg += f' {member.mention}'
-        else:
-            msg += '（なし）'
-        await ROBIN_GUILD.DEV_CH
+    # if (now + delta(minutes=1)).month == now.month + 1: # 1分後が来月 -> 明日が1日の23:59
+    #     members = joinLeaveMembers(ROBIN_GUILD.GUILD, 3, ROBIN_GUILD.GUILD.get_role(1246989946263306302))
+    #     msg = '3か月不参加メンバ:'
+    #     if members:
+    #         for member in members:
+    #             msg += f' {member.mention}'
+    #     else:
+    #         msg += '（なし）'
+    #     await ROBIN_GUILD.DEV_CH
 
     ######################################################
     #
@@ -1307,15 +1312,15 @@ async def f_stableReboot(ctx:discord.ApplicationContext|None = None):
     await client.close()  # ボットを終了
     exit()
 
-@client.slash_command(name='f-get-leave-month', description='任意の月間不参加者抽出')
-async def f_get_leave_month(ctx:discord.ApplicationContext, month:int):
-    leaveMembers = joinLeaveMembers(ctx.interaction.guild, delta(month=month), {1246661252147576842, 1246661367658840178, 1246989946263306302, 1393529338053267557, 1362429512909979778})
-    filename = f'cache/{ctx.interaction.guild.name}.csv'
-    with open(filename, 'w') as f:
-        for member in leaveMembers:
-            f.write(f'{member.id},{member.display_name}\n')
-    csvFile = discord.File(filename, filename=dt.now().strftime('leaveMembers_%y%m%d-%H%M%S.csv'))
-    await ctx.respond(f'{ctx.interaction.user.mention}\nフォーマットは\n`ID,表示名`', file=csvFile)
+# @client.slash_command(name='f-get-leave-month', description='任意の月間不参加者抽出')
+# async def f_get_leave_month(ctx:discord.ApplicationContext, month:int):
+#     leaveMembers = joinLeaveMembers(ctx.interaction.guild, delta(month=month), {1246661252147576842, 1246661367658840178, 1246989946263306302, 1393529338053267557, 1362429512909979778})
+#     filename = f'cache/{ctx.interaction.guild.name}.csv'
+#     with open(filename, 'w') as f:
+#         for member in leaveMembers:
+#             f.write(f'{member.id},{member.display_name}\n')
+#     csvFile = discord.File(filename, filename=dt.now().strftime('leaveMembers_%y%m%d-%H%M%S.csv'))
+#     await ctx.respond(f'{ctx.interaction.user.mention}\nフォーマットは\n`ID,表示名`', file=csvFile)
     
 #endregion
 
