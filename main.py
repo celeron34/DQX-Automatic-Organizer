@@ -702,9 +702,18 @@ async def loop():
             for party in lightFormation(participants, len(parties)):
                 parties.append(party)
             
+            sendSpeedpartyDisplayName = ''
+            sendLightpartyDisplayName = ''
             for party in parties:
-                print(party.members)
-                await ROBIN_GUILD.PARTY_CH_beta.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
+                if isinstance(party, LightParty):
+                    for member in party.members:
+                        sendLightpartyDisplayName += f'{member.display_name}\n'
+                elif isinstance(party, SpeedParty):
+                    for members in party.members.values():
+                        for member in members:
+                            sendSpeedpartyDisplayName += f'{member.display_name}\n'
+
+            await ROBIN_GUILD.PARTY_CH.send('## テスト編成表示\n### 高速パーティ\n' + sendSpeedpartyDisplayName + '\n### ライトパーティ\n' + sendLightpartyDisplayName)
 
             # 優先権操作
             if any(map(lambda party:isinstance(party, SpeedParty) , ROBIN_GUILD.parties)):
