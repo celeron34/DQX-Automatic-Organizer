@@ -987,10 +987,10 @@ class RoleManageView(discord.ui.View):
             async def callback(interaction: discord.Interaction, role=role, label=roleInfo.name):
                 if role in [role for role in interaction.user.roles if role in ROBIN_GUILD.ROLES.keys()]:
                     await interaction.user.remove_roles(role)
-                    await interaction.response.send_message(f'[{label}] を削除\n現在のロール:{[role for role in interaction.user.roles if role in ROBIN_GUILD.ROLES.keys()]}', ephemeral=True, delete_after=5)
+                    await interaction.response.send_message(f'[{label}] を削除\n現在のロール:{[ROBIN_GUILD.ROLES[role].emoji for role in interaction.user.roles if role in ROBIN_GUILD.ROLES.keys()]}', ephemeral=True, delete_after=5)
                 else:
                     await interaction.user.add_roles(role)
-                    await interaction.response.send_message(f'[{label}] を追加\n現在のロール:{[role for role in interaction.user.roles if role in ROBIN_GUILD.ROLES.keys()]}', ephemeral=True, delete_after=5)
+                    await interaction.response.send_message(f'[{label}] を追加\n現在のロール:{[ROBIN_GUILD.ROLES[role].emoji for role in interaction.user.roles if role in ROBIN_GUILD.ROLES.keys()]}', ephemeral=True, delete_after=5)
             btn.callback = callback
             self.add_item(btn)
 
