@@ -620,17 +620,6 @@ async def loop():
                         participants.append(participant)
             participantNum = len(participants)
             
-            
-            print(f'{dt.now()} Add Log')
-            with open(f'reactionLog/{ROBIN_GUILD.GUILD.name}.csv', 'a', encoding='utf8') as f:
-                for participant in participants:
-                    f.write(f"{ROBIN_GUILD.timeTable[0].strftime('%y-%m-%d-%H')},{participant.id}\n")
-
-            print('participants')
-            print([participant.display_name for participant in participants])
-            
-            await ROBIN_GUILD.PARTY_LOG.send(f'{ROBIN_GUILD.timeTable[0].strftime("%y-%m-%d-%H")} <:sanka:1345708506111545375> {participantNum}')
-
             formationStartTime = dt.now()
             # 編成
             shuffle(participants)
@@ -648,6 +637,18 @@ async def loop():
             
             for party in ROBIN_GUILD.parties:
                 party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
+            
+            print(f'{dt.now()} Add Log')
+            with open(f'reactionLog/{ROBIN_GUILD.GUILD.name}.csv', 'a', encoding='utf8') as f:
+                for participant in participants:
+                    f.write(f"{ROBIN_GUILD.timeTable[0].strftime('%y-%m-%d-%H')},{participant.id}\n")
+
+            print('participants')
+            print([participant.display_name for participant in participants])
+            
+            await ROBIN_GUILD.PARTY_LOG.send(f'{ROBIN_GUILD.timeTable[0].strftime("%y-%m-%d-%H")} <:sanka:1345708506111545375> {participantNum}')
+
+        # typingここまで
 
         print(f'{dt.now()} Formation END')
 
@@ -678,33 +679,33 @@ async def loop():
         except Exception as e:
             printTraceback(e)
 
-        # テスト編成
-        participants = []
-        priorities:list[Participant] = [p for p in participantsCopy
-                                        if {ROBIN_GUILD.PRIORITY_ROLE, ROBIN_GUILD.STATIC_PRIORITY_ROLE} & p.roles]
-        normals:list[Participant] = [set(participantsCopy) - set(priorities)]
-        if len(normals) == 0:
-            bias = 0
-        else:
-            bias = len(priorities) / len(normals) * 2
-        while True:
-            participant = pickParticipant(priorities, normals, bias)
-            if participant is None: break
-            participants.append(participant)
-        parties:list[SpeedParty|LightParty] = []
         try:
+            # テスト編成
+            participants = []
+            priorities:list[Participant] = [p for p in participantsCopy
+                                            if {ROBIN_GUILD.PRIORITY_ROLE, ROBIN_GUILD.STATIC_PRIORITY_ROLE} & p.roles]
+            normals:list[Participant] = [set(participantsCopy) - set(priorities)]
+            if len(normals) == 0:
+                bias = 0
+            else:
+                bias = len(priorities) / len(normals) * 2
+            while True:
+                participant = pickParticipant(priorities, normals, bias)
+                if participant is None: break
+                participants.append(participant)
+            parties:list[SpeedParty|LightParty] = []
             for party in speedFormation(participants):
                 parties.append(party)
             for party in lightFormation(participants, len(parties)):
                 parties.append(party)
+            
             for party in parties:
+                print(party.members)
                 await ROBIN_GUILD.PARTY_CH_beta.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
-        except Exception as e:
-            printTraceback(e)
 
-        # 優先権操作
-        try:
+            # 優先権操作
             if any(map(lambda party:isinstance(party, SpeedParty) , ROBIN_GUILD.parties)):
+                # 高速パーティがあるなら優先権付与
                 for party in ROBIN_GUILD.parties: # パーティループ
                     if isinstance(party, SpeedParty): # 高速パーティ
                         for participants in party.members.values(): # ロールループ
