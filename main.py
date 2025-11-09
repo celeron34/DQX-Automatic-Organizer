@@ -363,8 +363,6 @@ async def on_ready():
         ROBIN_GUILD.STATIC_PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['staticPriority'])
         ROBIN_GUILD.MASTER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['master'])
         
-        await ROBIN_GUILD.COMMAND_CH.purge()
-
         # タイムテーブルをゲット
         timeTable = await getTimetable(False)
         ROBIN_GUILD.timeTable = timeTable
@@ -1301,12 +1299,14 @@ async def f_get_participant_name(ctx:discord.ApplicationContext):
 
 async def f_reboot(ctx:discord.ApplicationContext|None = None):
     if ctx: await ctx.respond('再起動します')
+    await ROBIN_GUILD.COMMAND_CH.purge()
     Popen([executable, '-u'] + argv, cwd=getcwd())  # ボットを再起動
     await client.close()  # ボットを終了
     exit()
 
 async def f_stableReboot(ctx:discord.ApplicationContext|None = None):
     if ctx: await ctx.respond('安定版再起動します')
+    await ROBIN_GUILD.COMMAND_CH.purge()
     Popen(['git', 'checkout', '--force', 'main'], cwd=getcwd())
     Popen([executable, '-u'] + argv, cwd=getcwd())  # ボットを再起動
     await client.close()  # ボットを終了
