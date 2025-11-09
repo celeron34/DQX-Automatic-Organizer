@@ -37,9 +37,10 @@ rebootScadule:bool|discord.TextChannel = False
 #region Classese
 
 class RoleInfo:
-    def __init__(self, emoji:discord.Emoji, count:int):
+    def __init__(self, emoji:discord.Emoji, count:int, name:str):
         self.emoji:discord.Emoji = emoji
         self.count:int = count
+        self.name:str = name
         
 class PartyMember: # パーティメンバ親クラス
     def __init__(self, user:discord.Member|None, roles:set[discord.Role]):
@@ -327,58 +328,48 @@ async def on_ready():
     with open('IDs.json') as f:
         IDs = json.load(f)
 
-    ROBIN_GUILD = Guild(IDs[0]['guildID'])
+    for guildInfo in [IDs[0]]:
+        ROBIN_GUILD = Guild(guildInfo['guildID'])
 
-    # beta 1346195417808896041
-    ROBIN_GUILD.PARTY_CH      = client.get_channel(IDs[0]['channels']['party'])
-    ROBIN_GUILD.PARTY_CH_beta = client.get_channel(IDs[0]['channels']['party-beta'])
-    ROBIN_GUILD.PARTY_LOG     = client.get_channel(IDs[0]['channels']['party-log'])
-    ROBIN_GUILD.DEV_CH        = client.get_channel(IDs[0]['channels']['develop'])
-    ROBIN_GUILD.COMMAND_CH    = client.get_channel(IDs[0]['channels']['command'])
-    ROBIN_GUILD.UNAPPLIDE_CHANNEL = client.get_channel(IDs[0]['channels']['unapplide'])
+        ROBIN_GUILD.PARTY_CH      = client.get_channel(guildInfo['channels']['party'])
+        ROBIN_GUILD.PARTY_CH_beta = client.get_channel(guildInfo['channels']['party-beta'])
+        ROBIN_GUILD.PARTY_LOG     = client.get_channel(guildInfo['channels']['party-log'])
+        ROBIN_GUILD.DEV_CH        = client.get_channel(guildInfo['channels']['develop'])
+        ROBIN_GUILD.COMMAND_CH    = client.get_channel(guildInfo['channels']['command'])
+        ROBIN_GUILD.UNAPPLIDE_CHANNEL = client.get_channel(guildInfo['channels']['unapplide'])
 
-    try:
         # コミットハッシュ取得
         script_dir = path.dirname(path.abspath(__file__)) # パス
         git_root = check_output(['git', '-C', script_dir, 'rev-parse', '--show-toplevel'], text=True).strip()
         commit_hash = check_output(['git', '-C', git_root, 'rev-parse', 'HEAD'], text=True).strip()
         await ROBIN_GUILD.DEV_CH.send(f'commit hash: {commit_hash}')
-    except Exception as e:
-        printTraceback(e)
 
+        # 絵文字ゲット
+        ROBIN_GUILD.RECLUTING_EMOJI =  client.get_emoji(guildInfo['emojis']['recluting'])
 
-    # 絵文字ゲット
-    ROBIN_GUILD.RECLUTING_EMOJI =  client.get_emoji(IDs[0]['emojis']['recluting'])
-    # ROBIN_GUILD.FULLPARTY_EMOJI =  client.get_emoji(1345733070065500281)
-    # ROBIN_GUILD.LIGHTPARTY_EMOJI = client.get_emoji(1345688469183266886)
+        ROBIN_GUILD.ROLES = {
+                ROBIN_GUILD.GUILD.get_role(roleInfo['role']) : \
+                RoleInfo(client.get_emoji(roleInfo['emoji']), roleInfo['count'], roleName) \
+                    for roleName, roleInfo in guildInfo['partyRoles'].items()
+            }
+        ROBIN_GUILD.MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['member'])
+        ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['unapplide'])
+        ROBIN_GUILD.PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['priority'])
+        ROBIN_GUILD.STATIC_PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['staticPriority'])
+        ROBIN_GUILD.MASTER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['master'])
+        
+        await ROBIN_GUILD.COMMAND_CH.purge()
 
-    ROBIN_GUILD.ROLES = {
-            ROBIN_GUILD.GUILD.get_role(IDs[0]['partyRoles']['boomerang']['role']) : 
-                RoleInfo(client.get_emoji(IDs[0]['partyRoles']['boomerang']['emoji']), 1), # 先導
-            ROBIN_GUILD.GUILD.get_role(IDs[0]['partyRoles']['card']['role']) :
-                RoleInfo(client.get_emoji(IDs[0]['partyRoles']['card']['emoji']), 1), # 札
-            ROBIN_GUILD.GUILD.get_role(IDs[0]['partyRoles']['relay']['role']) :
-                RoleInfo(client.get_emoji(IDs[0]['partyRoles']['relay']['emoji']), 1), # 中継
-            ROBIN_GUILD.GUILD.get_role(IDs[0]['partyRoles']['smoke']['role']) :
-                RoleInfo(client.get_emoji(IDs[0]['partyRoles']['smoke']['emoji']), 1), # 霧
-            ROBIN_GUILD.GUILD.get_role(IDs[0]['partyRoles']['magic']['role']) :
-                RoleInfo(client.get_emoji(IDs[0]['partyRoles']['magic']['emoji']), 1), # 魔戦
-            ROBIN_GUILD.GUILD.get_role(IDs[0]['partyRoles']['heal']['role']) :
-                RoleInfo(client.get_emoji(IDs[0]['partyRoles']['heal']['emoji']), 3), # 回復
-        }
-    ROBIN_GUILD.MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['member'])
-    ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['unapplide'])
-    ROBIN_GUILD.PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['priority'])
-    ROBIN_GUILD.STATIC_PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['staticPriority'])
-    ROBIN_GUILD.MASTER_ROLE = ROBIN_GUILD.GUILD.get_role(IDs[0]['roles']['master'])
-    
-    await ROBIN_GUILD.COMMAND_CH.purge()
+        # タイムテーブルをゲット
+        timeTable = await getTimetable(False)
+        ROBIN_GUILD.timeTable = timeTable
+        for t in ROBIN_GUILD.timeTable:
+            print(t)
 
-    # タイムテーブルをゲット
-    timeTable = await getTimetable(False)
-    ROBIN_GUILD.timeTable = timeTable
-    for t in ROBIN_GUILD.timeTable:
-        print(t)
+        # ローリングチャンネルイニシャライズ
+        ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH)
+
+        await ROBIN_GUILD.GUILD.chunk()
 
     # ループの時間調整
     await client.change_presence(activity=discord.CustomActivity(name='時間同期待ち'), status=discord.Status.dnd)
@@ -387,14 +378,6 @@ async def on_ready():
     await sleep(60.5 - second)
     loop.start()
     print(f'{dt.now()} loop Start')
-
-    # ローリングチャンネルイニシャライズ
-    ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH)
-
-    try:
-        await ROBIN_GUILD.GUILD.chunk()
-    except Exception:
-        print('Guild.chunk missed')
 
     await client.change_presence(activity=discord.CustomActivity(name=timeTable[0].strftime("Next:%H時"))) # なぜかここにないと動かない
     print(f'{dt.now()} on_ready END')
@@ -992,38 +975,21 @@ def printTraceback(e):
 class RoleManageView(discord.ui.View):
     def __init__(self, *items, timeout = None, disable_on_timeout = True):
         super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
-    async def roleManage(self, label:str, emoji:str, interaction:discord.Interaction):
-        role = emoji2role(emoji)
-        if role in interaction.user.roles:
-            # ロールがあるから削除
-            print(f'{dt.now()} Delete role {interaction.user} {label}')
-            await interaction.user.remove_roles(role)
-            await interaction.response.send_message(f'[{label}] を削除', ephemeral=True, delete_after=5)
-        else:
-            # ロールがないから追加
-            print(f'{dt.now()} Add role {interaction.user} {label}')
-            await interaction.user.add_roles(role)
-            await interaction.response.send_message(f'[{label}] を追加', ephemeral=True, delete_after=5)
+        # 動的にボタンを生成してコールバックをクロージャで捕捉する
+        for role, roleInfo in ROBIN_GUILD.ROLES.items():
+            btn = discord.ui.Button(label=roleInfo.name, emoji=roleInfo.emoji, style=discord.ButtonStyle.blurple)
+            # クロージャで role を固定する
+            async def callback(interaction: discord.Interaction, role=role, label=roleInfo.name):
+                if role in [role for role in interaction.user.roles if role in ROBIN_GUILD.ROLES.keys()]:
+                    await interaction.user.remove_roles(role)
+                    await interaction.response.send_message(f'[{label}] を削除\n現在のロール:{[role for role in interaction.user.roles if role in ROBIN_GUILD.ROLES.keys()]}', ephemeral=True, delete_after=5)
+                else:
+                    await interaction.user.add_roles(role)
+                    await interaction.response.send_message(f'[{label}] を追加\n現在のロール:{[role for role in interaction.user.roles if role in ROBIN_GUILD.ROLES.keys()]}', ephemeral=True, delete_after=5)
+            btn.callback = callback
+            self.add_item(btn)
 
-    @discord.ui.button(label='魔戦', emoji='<:magic_knight:1345708222962470952>', row=1, style=discord.ButtonStyle.blurple)
-    async def magicKnight(self, button:discord.ui.Button, interaction:discord.Interaction):
-        await self.roleManage(button.label, button.emoji, interaction)
-    @discord.ui.button(label='先導', emoji='<:boomerang:1345710507398529085>', row=1, style=discord.ButtonStyle.blurple)
-    async def boomerang(self, button:discord.ui.Button, interaction:discord.Interaction):
-        await self.roleManage(button.label, button.emoji, interaction)
-    @discord.ui.button(label='霧', emoji='<:buttarfly:1345708049838641234>', row=1, style=discord.ButtonStyle.blurple)
-    async def butterfly(self, button:discord.ui.Button, interaction:discord.Interaction):
-        await self.roleManage(button.label, button.emoji, interaction)
-    @discord.ui.button(label='札', emoji='<:card:1345708117618458695>', row=2, style=discord.ButtonStyle.blurple)
-    async def card(self, button:discord.ui.Button, interaction:discord.Interaction):
-        await self.roleManage(button.label, button.emoji, interaction)
-    @discord.ui.button(label='中継', emoji='<:relay:1345708094251859999>', row=2, style=discord.ButtonStyle.blurple)
-    async def way(self, button:discord.ui.Button, interaction:discord.Interaction):
-        await self.roleManage(button.label, button.emoji, interaction)
-    @discord.ui.button(label='回復', emoji='<:heal:1345708066741424138>', row=2, style=discord.ButtonStyle.blurple)
-    async def heal(self, button:discord.ui.Button, interaction:discord.Interaction):
-        await self.roleManage(button.label, button.emoji, interaction)
-    @discord.ui.button(label='オールクリア', row=3, style=discord.ButtonStyle.red)
+    @discord.ui.button(label='オールクリア', style=discord.ButtonStyle.red)
     async def all_clear(self, button:discord.ui.Button, interaction:discord.Interaction):
         for role in ROBIN_GUILD.ROLES.keys():
             if role in interaction.user.roles:
@@ -1212,20 +1178,6 @@ class RebootView(discord.ui.View):
         buttonAllDisable(self.children)
         await interaction.response.edit_message(view=self)
         await f_stableReboot()
-
-# class RecluteView(discord.ui.View):
-#     def __init__(self, *items, timeout=None, disable_on_timeout=True, disable01=False, disable02=False):
-#         super().__init__(*items, timeout=timeout, disable_on_timeout = disable_on_timeout)
-#         self.disable01 = disable01
-#         self.disable02 = disable02
-#     @discord.ui.button(label='Button01', style=discord.ButtonStyle.green)
-#     async def reclute01(self, button:discord.ui.Button, interaction:discord.Interaction):
-#         await interaction.response.send_message(f'個別表示テスト {button.label} が押されました', ephemeral=True, view=RecluteView(disable01=True, timeout=180, disable_on_timeout=False))
-#         print(f'{dt.now()} {interaction.user} {button.label}')
-#     @discord.ui.button(label='Button01', style=discord.ButtonStyle.red)
-#     async def reclute02(self, button:discord.ui.Button, interaction:discord.Interaction):
-#         await interaction.response.send_message(f'個別表示テスト {button.label} が押されました', ephemeral=True, view=RecluteView(disable02=True, timeout=180, disable_on_timeout=False))
-#         print(f'{dt.now()} {interaction.user} {button.label}')
 
 def buttonAllDisable(children):
     for child in children:
