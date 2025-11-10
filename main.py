@@ -647,7 +647,7 @@ async def loop():
             participants = []
             priorities:list[Participant] = [p for p in participantsCopy
                                             if {ROBIN_GUILD.PRIORITY_ROLE, ROBIN_GUILD.STATIC_PRIORITY_ROLE} & p.roles]
-            normals:list[Participant] = [set(participantsCopy) - set(priorities)]
+            normals:list[Participant] = list(set(participantsCopy) - set(priorities))
             if len(normals) == 0:
                 bias = 0
             else:
