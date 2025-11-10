@@ -529,6 +529,7 @@ async def loop():
     if now == ROBIN_GUILD.timeTable[0] - delta(minutes=30):
         # パーティ編成クラスをインスタンス化，メッセージ送信
         print(f'################### {dt.now()} Recluting ###################')
+        ROBIN_GUILD.RECLUTING_MEMBER.clear()
         try: # ボタン付き募集文テスト
             ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.send(
                 ROBIN_GUILD.timeTable[0].strftime(f'# 【異星周回 %H時】\n参加希望は{ROBIN_GUILD.RECLUTING_EMOJI}リアクション願います'),
@@ -693,6 +694,8 @@ async def loop():
             try: await ROBIN_GUILD.DEV_CH.send('優先権操作に失敗')
             except Exception: pass
             printTraceback(e)
+
+        ROBIN_GUILD.RECLUTING_MEMBER.clear()
 
         print('#==================================================================#')
 
