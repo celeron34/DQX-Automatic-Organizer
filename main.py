@@ -1155,7 +1155,7 @@ class RecruitView(discord.ui.View):
             await interaction.response.send_message(
                 f'参加を受け付けましたがテスト中ですので、編成に失敗する恐れがあります。\n念のために{ROBIN_GUILD.RECLUTING_EMOJI}リアクションもしておくと確実です。',
                 ephemeral=True, delete_after=5)
-            sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :red_square: {interaction.user.display_name}\n現在の参加者:'
+            sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :green_square: {interaction.user.display_name}\n現在の参加者:'
             for member in ROBIN_GUILD.RECLUTING_MEMBER:
                 sendMessage += f' {member.display_name}'
             await ROBIN_GUILD.DEV_CH.send(sendMessage)
@@ -1168,7 +1168,7 @@ class RecruitView(discord.ui.View):
             print(f'{now} Reclute leave button from {interaction.user.display_name}')
             ROBIN_GUILD.RECLUTING_MEMBER.remove(interaction.user)
             await interaction.response.send_message('辞退を受け付けました', ephemeral=True, delete_after=5)
-            sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :blue_square: {interaction.user.display_name}\n現在の参加者:'
+            sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :red_square: {interaction.user.display_name}\n現在の参加者:'
             for member in ROBIN_GUILD.RECLUTING_MEMBER:
                 sendMessage += f' {member.display_name}'
             await ROBIN_GUILD.DEV_CH.send(sendMessage)
