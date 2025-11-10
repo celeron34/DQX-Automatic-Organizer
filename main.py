@@ -673,7 +673,7 @@ async def loop():
                         for member in members:
                             sendSpeedpartyDisplayName += f'{member.display_name}\n'
 
-            await ROBIN_GUILD.PARTY_CH.send('## テスト編成表示\n### 高速パーティ\n' + sendSpeedpartyDisplayName + '\n### ライトパーティ\n' + sendLightpartyDisplayName)
+            await ROBIN_GUILD.DEV_CH.send('## テスト編成表示\n### 高速パーティ\n' + sendSpeedpartyDisplayName + '\n### ライトパーティ\n' + sendLightpartyDisplayName)
 
             # 優先権操作
             if any(map(lambda party:isinstance(party, SpeedParty) , ROBIN_GUILD.parties)):
