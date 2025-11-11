@@ -828,6 +828,8 @@ async def checkParticipationRight(sender:discord.Member|discord.Interaction, cha
     global ROBIN_GUILD
     if isinstance(sender, discord.Interaction):
         member = sender.user
+    else:
+        member = sender
     if ROBIN_GUILD.MEMBER_ROLE not in member.roles:
         if isinstance(sender, discord.Interaction):
             await sender.response.send_message(f'{member.mention} 参加権がありません', ephemeral=True)
