@@ -315,6 +315,8 @@ class Guild:
 
         # self.formation:Formation = None # パーティ編成クラス
 
+        self.reclutingMessageItems:list[SendItem] = list() # 募集メッセージアイテムリスト
+
 #endregion
 
 ROBIN_GUILD:Guild = None
@@ -340,6 +342,8 @@ async def on_ready():
         ROBIN_GUILD.DEV_CH        = client.get_channel(guildInfo['channels']['develop'])
         ROBIN_GUILD.COMMAND_CH    = client.get_channel(guildInfo['channels']['command'])
         ROBIN_GUILD.UNAPPLIDE_CHANNEL = client.get_channel(guildInfo['channels']['unapplide'])
+
+        ROBIN_GUILD.reclutingMessageItems = getDirectoryItems(f'guilds/{ROBIN_GUILD.GUILD.id}/recluitingMessage')
 
         # コミットハッシュ取得
         script_dir = path.dirname(path.abspath(__file__)) # パス
@@ -420,6 +424,12 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
             # 通常参加申請
             party:LightParty = searchLightParty(reaction.message, ROBIN_GUILD.parties)
             await party.joinRequest(user)
+    else: # パーティ編成前
+        # 募集メッセージ判定
+        if reaction.message == ROBIN_GUILD.reclutingMessage:
+            if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
+                ROBIN_GUILD.RECLUTING_MEMBER.add(user)
+                await reaction.message.edit(recluitMessageReplace(ROBIN_GUILD.reclutingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER)))
 
 ##############################################################################################
 ## 
@@ -461,7 +471,13 @@ async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|disc
                     del party.joins[delMessage]
                     await delMessage.edit(f'@here {member.display_name} が参加取り下げ', view=DummyApproveView())
                     break
-
+    else: # パーティ編成前
+        # 募集メッセージ判定
+        if reaction.message == ROBIN_GUILD.reclutingMessage:
+            if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
+                ROBIN_GUILD.RECLUTING_MEMBER.remove(user)
+                await reaction.message.edit(recluitMessageReplace(ROBIN_GUILD.reclutingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER)))
+#endregion
 ##############################################################################################
 ## 
 async def reply_message(message:discord.Message, send:str, accept:bool):
@@ -531,9 +547,18 @@ async def loop():
         print(f'################### {dt.now()} Recluting ###################')
         ROBIN_GUILD.RECLUTING_MEMBER.clear()
         try: # ボタン付き募集文テスト
-            ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.send(
-                ROBIN_GUILD.timeTable[0].strftime(f'# 【異星周回 %H時】\n参加希望は{ROBIN_GUILD.RECLUTING_EMOJI}リアクション願います'),
-                view=RecruitView(timeout=60*20, disable_on_timeout=False)) # 募集文
+            sendItems = getDirectoryItems(f'guilds/{ROBIN_GUILD.GUILD.id}/recluitingMessage')
+            for index, sendItem in enumerate(sendItems):
+                if index - len(sendItems) + 1 == 0:
+                    # 最後のメッセージ
+                    ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.send(
+                        content=recluitMessageReplace(sendItem.text, ROBIN_GUILD.timeTable[0]),
+                        files=sendItem.imgs,
+                        view=RecruitView(msg=sendItem.text, timeout=60*20, disable_on_timeout=False))
+                else:
+                    await ROBIN_GUILD.PARTY_CH.send(
+                        content=recluitMessageReplace(sendItem.text, ROBIN_GUILD.timeTable[0]),
+                        files=sendItem.imgs)
         except Exception as e:
             printTraceback(e)
             ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.send(
@@ -795,33 +820,48 @@ def joinLeaveMembers(guild:discord.Guild, month:delta, exclusionRole:discord.Rol
         leaveMembers = leaveMembers - targetMember
     return leaveMembers
 
+class SendItem:
+    def __init__(self, text:str, imgs:list[discord.File]):
+        self.text = text
+        self.imgs = imgs
+
 async def sendDirectory(path:str, targetChannel:discord.Thread|discord.TextChannel):
+    for sendItem in getDirectoryItems(path):
+        await targetChannel.send(sendItem.text, files=sendItem.imgs)
+
+def getDirectoryItems(path:str) -> list[SendItem]:
+    sendItems:list[dict[str, list[discord.File]|str]] = []
     numFiles:list[str] = glob('*', root_dir=path)
     num = 1
     while True:
         imgs:list[discord.File] = []
         for p in numFiles:
-            if match('^' + str(num) + '+(-[0-9]+)[.]?(png|jpg|jpeg|tiff)$', p) is not None:
+            if match('^' + str(num) + '+(-[0-9]+)?[.](png|jpg|jpeg|tiff)$', p) is not None:
                 imgs.append(discord.File(path + '/' + p))
         for p in imgs:
             numFiles.remove(p.filename)
-        txt:str = ''
+        text:str = ''
         for p in numFiles:
             if match('^' + str(num) + '+(-[0-9]+)?[.](txt|md)$', p) is not None:
                 with open(path + '/' + p, 'r', encoding='utf-8') as f:
-                    txt = f.read()
+                    text = f.read()
                 break
-        
-        if txt == '' and imgs == []: break
-        try: await targetChannel.send(txt, files=imgs)
-        except Exception as e:
-            if imgs and txt != '': # 両方ある
-                await targetChannel.send(txt, files=imgs)
-            elif imgs: # イメージがある
-                await targetChannel.send(files=imgs)
-            elif txt != '':
-                await targetChannel.send(txt)
+        if text == '' and imgs == []: break
+        sendItems.append(SendItem(text, imgs))
         num += 1
+    return sendItems
+
+def replaces(msg:str, replaceChars:dict[str,str]) -> str:
+    for key, value in replaceChars.items():
+        msg = msg.replace(key, value)
+    return msg
+
+def recluitMessageReplace(msg:str, time:dt, count:int=0) -> str:
+    replaceChars = {
+        '{hour}': time.strftime('%H'),
+        '{count}': str(count)
+    }
+    return replaces(msg, replaceChars)
 
 # 参加権チェック
 async def checkParticipationRight(sender:discord.Member|discord.Interaction, channel:discord.TextChannel=None) -> bool:
@@ -1138,29 +1178,37 @@ async def createNewParty(user:discord.Member, free:bool=False):
     ROBIN_GUILD.parties.append(newParty)
 
 class RecruitView(discord.ui.View):
-    def __init__(self, *items, timeout=None, disable_on_timeout=True):
+    def __init__(self, msg:str, *items, timeout=None, disable_on_timeout=True):
+        self.msg = msg
         super().__init__(*items, timeout=timeout, disable_on_timeout = disable_on_timeout)
-    def on_timeout(self):
+    async def on_timeout(self):
         buttonAllDisable(self.children)
+
     @discord.ui.button(label='参加 [beta]', style=discord.ButtonStyle.green)
     async def joinReclute(self, button:discord.ui.Button, interaction:discord.Interaction):
         now = dt.now()
         # 未参加であれば追加
         if interaction.user in ROBIN_GUILD.RECLUTING_MEMBER:
+            # 既に参加している
             print(f'{now} Recruit button from {interaction.user.display_name} but already joined')
             await interaction.response.send_message(
-                f'参加済ですがテスト中ですので、編成に失敗する恐れがあります。\n念のために{ROBIN_GUILD.RECLUTING_EMOJI}リアクションもしておくと確実です。',
-                ephemeral=True, delete_after=5)
+                f'参加済です\nテスト中ですので、編成に失敗する恐れがあります。\n念のために{ROBIN_GUILD.RECLUTING_EMOJI}リアクションもしておくと確実です。',
+                ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 10.)
+            # await interaction.response.send_message(
+            #     f'参加済です', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 10.)
         else:
             print(f'{now} Recruit button from {interaction.user.display_name}')
             ROBIN_GUILD.RECLUTING_MEMBER.add(interaction.user)
             await interaction.response.send_message(
-                f'参加を受け付けましたがテスト中ですので、編成に失敗する恐れがあります。\n念のために{ROBIN_GUILD.RECLUTING_EMOJI}リアクションもしておくと確実です。',
-                ephemeral=True, delete_after=5)
+                f'参加を受け付けました\nテスト中ですので、編成に失敗する恐れがあります。\n念のために{ROBIN_GUILD.RECLUTING_EMOJI}リアクションもしておくと確実です。',
+                ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 10.)
+            # await interaction.response.send_message(
+            #     f'参加を受け付けました', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 10.)
             sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :green_square: {interaction.user.display_name}\n現在の参加者:'
             for member in ROBIN_GUILD.RECLUTING_MEMBER:
                 sendMessage += f' {member.display_name}'
-            await ROBIN_GUILD.DEV_CH.send(sendMessage)
+                interaction.message.content = recluitMessageReplace(self.msg, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER))
+                await ROBIN_GUILD.DEV_CH.send(sendMessage)
 
     @discord.ui.button(label='辞退 [beta]', style=discord.ButtonStyle.red)
     async def leaveReclute(self, button:discord.ui.Button, interaction:discord.Interaction):
@@ -1169,15 +1217,18 @@ class RecruitView(discord.ui.View):
         if interaction.user in ROBIN_GUILD.RECLUTING_MEMBER:
             print(f'{now} Reclute leave button from {interaction.user.display_name}')
             ROBIN_GUILD.RECLUTING_MEMBER.remove(interaction.user)
-            await interaction.response.send_message('辞退を受け付けました', ephemeral=True, delete_after=5)
+            await interaction.response.send_message('辞退を受け付けました', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 10.)
+            # await interaction.response.send_message('辞退を受け付けました', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 10.)
+            interaction.message.content = recluitMessageReplace(self.msg, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER))
             sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :red_square: {interaction.user.display_name}\n現在の参加者:'
+            # 更新メッセージ
             for member in ROBIN_GUILD.RECLUTING_MEMBER:
                 sendMessage += f' {member.display_name}'
             await ROBIN_GUILD.DEV_CH.send(sendMessage)
 
         else:
             print(f'{now} Reclute leave button from {interaction.user.display_name} but not joined')
-            await interaction.response.send_message('辞退済です', ephemeral=True, delete_after=5)
+            await interaction.response.send_message('辞退済です', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 10.)
 
 class RebootView(discord.ui.View):
     def __init__(self, *items, timeout=None, disable_on_timeout=True):
