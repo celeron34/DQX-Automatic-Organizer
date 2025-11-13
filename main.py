@@ -1180,7 +1180,7 @@ class RecruitView(discord.ui.View):
             # await interaction.response.send_message(
             #     f'参加を受け付けました', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 10.)
             sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :green_square: {interaction.user.display_name}\n現在の参加者:'
-            interaction.message.content = recluitMessageReplace(self.msg, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER))
+            interaction.message.content = recluitMessageReplace(ROBIN_GUILD.reclutingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER))
             for member in ROBIN_GUILD.RECLUTING_MEMBER:
                 sendMessage += f' {member.display_name}'
             await ROBIN_GUILD.RECLUIT_LOG_CH.send(sendMessage)
@@ -1194,7 +1194,7 @@ class RecruitView(discord.ui.View):
             ROBIN_GUILD.RECLUTING_MEMBER.remove(interaction.user)
             await interaction.response.send_message('辞退を受け付けました', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 10.)
             # await interaction.response.send_message('辞退を受け付けました', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 10.)
-            interaction.message.content = recluitMessageReplace(self.msg, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER))
+            interaction.message.content = recluitMessageReplace(ROBIN_GUILD.reclutingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER))
             sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :red_square: {interaction.user.display_name}\n現在の参加者:'
             # 更新メッセージ
             for member in ROBIN_GUILD.RECLUTING_MEMBER:
