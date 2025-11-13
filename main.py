@@ -330,55 +330,19 @@ async def on_ready():
     global ROBIN_GUILD
     print(f'{dt.now()} on_ready START')
 
-    # チャンネル・ギルドをゲット
-    with open('IDs.json') as f:
-        IDs = json.load(f)
+    await f_fetch()
 
-    for guildInfo in [IDs[0]]:
-        ROBIN_GUILD = Guild(guildInfo['guildID'])
+    # コミットハッシュ取得
+    script_dir = path.dirname(path.abspath(__file__)) # パス
+    git_root = check_output(['git', '-C', script_dir, 'rev-parse', '--show-toplevel'], text=True).strip()
+    commit_hash = check_output(['git', '-C', git_root, 'rev-parse', 'HEAD'], text=True).strip()
+    await ROBIN_GUILD.DEV_CH.send(f'commit hash: {commit_hash}')
 
-        ROBIN_GUILD.PARTY_CH      = client.get_channel(guildInfo['channels']['party'])
-        ROBIN_GUILD.PARTY_CH_beta = client.get_channel(guildInfo['channels']['party-beta'])
-        ROBIN_GUILD.PARTY_LOG     = client.get_channel(guildInfo['channels']['party-log'])
-        ROBIN_GUILD.DEV_CH        = client.get_channel(guildInfo['channels']['develop'])
-        ROBIN_GUILD.COMMAND_CH    = client.get_channel(guildInfo['channels']['command'])
-        ROBIN_GUILD.UNAPPLIDE_CHANNEL = client.get_channel(guildInfo['channels']['unapplide'])
-        ROBIN_GUILD.RECLUIT_LOG_CH = client.get_channel(guildInfo['channels']['recluit-log'])
-
-        ROBIN_GUILD.reclutingMessageItems = getDirectoryItems(f'guilds/{ROBIN_GUILD.GUILD.id}/recluitingMessage')
-
-        # コミットハッシュ取得
-        script_dir = path.dirname(path.abspath(__file__)) # パス
-        git_root = check_output(['git', '-C', script_dir, 'rev-parse', '--show-toplevel'], text=True).strip()
-        commit_hash = check_output(['git', '-C', git_root, 'rev-parse', 'HEAD'], text=True).strip()
-        await ROBIN_GUILD.DEV_CH.send(f'commit hash: {commit_hash}')
-
-        # 絵文字ゲット
-        ROBIN_GUILD.RECLUTING_EMOJI =  client.get_emoji(guildInfo['emojis']['recluting'])
-        ROBIN_GUILD.FULLPARTY_EMOJI =  client.get_emoji(guildInfo['emojis']['fullparty'])
-        ROBIN_GUILD.LIGHTPARTY_EMOJI = client.get_emoji(guildInfo['emojis']['lightparty'])
-
-        ROBIN_GUILD.ROLES = {
-                ROBIN_GUILD.GUILD.get_role(roleInfo['role']) : \
-                RoleInfo(client.get_emoji(roleInfo['emoji']), roleInfo['count'], roleName) \
-                    for roleName, roleInfo in guildInfo['partyRoles'].items()
-            }
-        ROBIN_GUILD.MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['member'])
-        ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['unapplide'])
-        ROBIN_GUILD.PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['priority'])
-        ROBIN_GUILD.STATIC_PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['staticPriority'])
-        ROBIN_GUILD.MASTER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['master'])
-        
-        # タイムテーブルをゲット
-        timeTable = await getTimetable(False)
-        ROBIN_GUILD.timeTable = timeTable
-        for t in ROBIN_GUILD.timeTable:
-            print(t)
-
-        # ローリングチャンネルイニシャライズ
-        ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH)
-
-        await ROBIN_GUILD.GUILD.chunk()
+    # タイムテーブルをゲット
+    timeTable = await getTimetable(False)
+    ROBIN_GUILD.timeTable = timeTable
+    for t in ROBIN_GUILD.timeTable:
+        print(t)
 
     # ループの時間調整
     await client.change_presence(activity=discord.CustomActivity(name='時間同期待ち'), status=discord.Status.dnd)
@@ -1390,6 +1354,55 @@ async def f_stableReboot(ctx:discord.ApplicationContext|None = None):
     Popen([executable, '-u'] + argv, cwd=getcwd())  # ボットを再起動
     await client.close()  # ボットを終了
     exit()
+
+@client.slash_command(name='f-fetch', description='ギルド情報再取得')
+async def f_fetch_commanc(ctx:discord.ApplicationContext):
+    print(f'{dt.now()} slash command fetch from {ctx.interaction.user}')
+    await f_fetch()
+    await ctx.respond('ギルド情報を再取得しました')
+
+async def f_fetch():
+    global ROBIN_GUILD
+    # チャンネル・ギルドをゲット
+    with open('IDs.json') as f:
+        IDs = json.load(f)
+
+    for guildInfo in [IDs[0]]:
+        ROBIN_GUILD = Guild(guildInfo['guildID'])
+
+        # チャンネルゲット
+        ROBIN_GUILD.PARTY_CH      = client.get_channel(guildInfo['channels']['party'])
+        ROBIN_GUILD.PARTY_CH_beta = client.get_channel(guildInfo['channels']['party-beta'])
+        ROBIN_GUILD.PARTY_LOG     = client.get_channel(guildInfo['channels']['party-log'])
+        ROBIN_GUILD.DEV_CH        = client.get_channel(guildInfo['channels']['develop'])
+        ROBIN_GUILD.COMMAND_CH    = client.get_channel(guildInfo['channels']['command'])
+        ROBIN_GUILD.UNAPPLIDE_CHANNEL = client.get_channel(guildInfo['channels']['unapplide'])
+        ROBIN_GUILD.RECLUIT_LOG_CH = client.get_channel(guildInfo['channels']['recluit-log'])
+
+        ROBIN_GUILD.reclutingMessageItems = getDirectoryItems(f'guilds/{ROBIN_GUILD.GUILD.id}/recluitingMessage')
+        
+        # 絵文字ゲット
+        ROBIN_GUILD.RECLUTING_EMOJI =  client.get_emoji(guildInfo['emojis']['recluting'])
+        ROBIN_GUILD.FULLPARTY_EMOJI =  client.get_emoji(guildInfo['emojis']['fullparty'])
+        ROBIN_GUILD.LIGHTPARTY_EMOJI = client.get_emoji(guildInfo['emojis']['lightparty'])
+
+        # ロールゲット
+        ROBIN_GUILD.ROLES = {
+                ROBIN_GUILD.GUILD.get_role(roleInfo['role']) : \
+                RoleInfo(client.get_emoji(roleInfo['emoji']), roleInfo['count'], roleName) \
+                    for roleName, roleInfo in guildInfo['partyRoles'].items()
+            }
+        ROBIN_GUILD.MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['member'])
+        ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['unapplide'])
+        ROBIN_GUILD.PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['priority'])
+        ROBIN_GUILD.STATIC_PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['staticPriority'])
+        ROBIN_GUILD.MASTER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['master'])
+
+        # ローリングチャンネルイニシャライズ
+        await ROBIN_GUILD.COMMAND_CH.purge()
+        ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH)
+
+        await ROBIN_GUILD.GUILD.chunk()
 
 # @client.slash_command(name='f-get-leave-month', description='任意の月間不参加者抽出')
 # async def f_get_leave_month(ctx:discord.ApplicationContext, month:int):
