@@ -293,6 +293,7 @@ class Guild:
         self.COMMAND_MSG:discord.Message = None # コマンドメッセージ
         self.PARTY_LOG:discord.TextChannel = None # パーティログチャンネル
         self.UNAPPLIDE_CHANNEL:discord.TextChannel = None # 参加申請チャンネル
+        self.RECLUIT_LOG_CH:discord.TextChannel = None # 募集ログチャンネル
 
         self.reclutingMessage:discord.Message = None # 募集メッセージ
         self.parties:list[SpeedParty|LightParty]|None = None # パーティ一覧
@@ -342,6 +343,7 @@ async def on_ready():
         ROBIN_GUILD.DEV_CH        = client.get_channel(guildInfo['channels']['develop'])
         ROBIN_GUILD.COMMAND_CH    = client.get_channel(guildInfo['channels']['command'])
         ROBIN_GUILD.UNAPPLIDE_CHANNEL = client.get_channel(guildInfo['channels']['unapplide'])
+        ROBIN_GUILD.RECLUIT_LOG_CH = client.get_channel(guildInfo['channels']['recluit-log'])
 
         ROBIN_GUILD.reclutingMessageItems = getDirectoryItems(f'guilds/{ROBIN_GUILD.GUILD.id}/recluitingMessage')
 
@@ -430,6 +432,10 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
             if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
                 ROBIN_GUILD.RECLUTING_MEMBER.add(user)
                 await reaction.message.edit(recluitMessageReplace(ROBIN_GUILD.reclutingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER)))
+                sendMessage = dt.now().strftime('[%y-%m-%d %H:%M]') + f' :green_square: {user.display_name}\n現在の参加者:'
+                for member in ROBIN_GUILD.RECLUTING_MEMBER:
+                    sendMessage += f' {member.display_name}'
+                await ROBIN_GUILD.RECLUIT_LOG_CH.send(sendMessage)
 
 ##############################################################################################
 ## 
@@ -477,6 +483,11 @@ async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|disc
             if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
                 ROBIN_GUILD.RECLUTING_MEMBER.remove(user)
                 await reaction.message.edit(recluitMessageReplace(ROBIN_GUILD.reclutingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER)))
+                sendMessage = dt.now().strftime('[%y-%m-%d %H:%M]') + f' :green_square: {user.display_name}\n現在の参加者:'
+                for member in ROBIN_GUILD.RECLUTING_MEMBER:
+                    sendMessage += f' {member.display_name}'
+                await ROBIN_GUILD.RECLUIT_LOG_CH.send(sendMessage)
+
 #endregion
 ##############################################################################################
 ## 
@@ -698,7 +709,7 @@ async def loop():
                         for member in members:
                             sendSpeedpartyDisplayName += f'{member.display_name}\n'
 
-            await ROBIN_GUILD.DEV_CH.send('## テスト編成表示\n### 高速パーティ\n' + sendSpeedpartyDisplayName + '\n### ライトパーティ\n' + sendLightpartyDisplayName)
+            await ROBIN_GUILD.RECLUIT_LOG_CH.send('## テスト編成表示\n### 高速パーティ\n' + sendSpeedpartyDisplayName + '\n### ライトパーティ\n' + sendLightpartyDisplayName)
 
             # 優先権操作
             if any(map(lambda party:isinstance(party, SpeedParty) , ROBIN_GUILD.parties)):
@@ -716,7 +727,7 @@ async def loop():
                                 # 静的優先権を持っているなら動的優先権は付与しない
                                 participant.user.add_roles(ROBIN_GUILD.PRIORITY_ROLE) # 動的優先権付与
         except Exception as e:
-            try: await ROBIN_GUILD.DEV_CH.send('優先権操作に失敗')
+            try: await ROBIN_GUILD.RECLUIT_LOG_CH.send('優先権操作に失敗')
             except Exception: pass
             printTraceback(e)
 
@@ -1205,10 +1216,10 @@ class RecruitView(discord.ui.View):
             # await interaction.response.send_message(
             #     f'参加を受け付けました', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 10.)
             sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :green_square: {interaction.user.display_name}\n現在の参加者:'
+            interaction.message.content = recluitMessageReplace(self.msg, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER))
             for member in ROBIN_GUILD.RECLUTING_MEMBER:
                 sendMessage += f' {member.display_name}'
-                interaction.message.content = recluitMessageReplace(self.msg, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER))
-                await ROBIN_GUILD.DEV_CH.send(sendMessage)
+            await ROBIN_GUILD.RECLUIT_LOG_CH.send(sendMessage)
 
     @discord.ui.button(label='辞退 [beta]', style=discord.ButtonStyle.red)
     async def leaveReclute(self, button:discord.ui.Button, interaction:discord.Interaction):
@@ -1224,7 +1235,7 @@ class RecruitView(discord.ui.View):
             # 更新メッセージ
             for member in ROBIN_GUILD.RECLUTING_MEMBER:
                 sendMessage += f' {member.display_name}'
-            await ROBIN_GUILD.DEV_CH.send(sendMessage)
+            await ROBIN_GUILD.RECLUIT_LOG_CH.send(sendMessage)
 
         else:
             print(f'{now} Reclute leave button from {interaction.user.display_name} but not joined')
