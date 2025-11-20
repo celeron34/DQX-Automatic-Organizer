@@ -145,7 +145,7 @@ class LightParty(Party):
             await msg.delete(delay=5)
             return False
         print(f'Join request Done')
-        requestMessage = await self.thread.send(f'@here {member.display_name} から加入申請', view=ApproveView(timeout=600))
+        requestMessage = await self.thread.send(f'@here {member.display_name} から加入申請', view=ApproveView(duration=600))
         self.joins[requestMessage] = member
 
     async def removeJoinRequest(self, target:discord.Member | LightParty | None) -> bool:
@@ -444,13 +444,13 @@ async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|disc
     else: # パーティ編成前
         # 募集メッセージ判定
         if reaction.message == ROBIN_GUILD.reclutingMessage:
-            if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
+            if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI and user in ROBIN_GUILD.RECLUTING_MEMBER:
                 ROBIN_GUILD.RECLUTING_MEMBER.remove(user)
                 await reaction.message.edit(recluitMessageReplace(ROBIN_GUILD.reclutingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER)))
-                sendMessage = dt.now().strftime('[%y-%m-%d %H:%M]') + f' :green_square: {user.display_name}\n現在の参加者:'
-                for member in ROBIN_GUILD.RECLUTING_MEMBER:
-                    sendMessage += f' {member.display_name}'
-                await ROBIN_GUILD.RECLUIT_LOG_CH.send(sendMessage)
+            sendMessage = dt.now().strftime('[%y-%m-%d %H:%M]') + f' :green_square: {user.display_name}\n現在の参加者:'
+            for member in ROBIN_GUILD.RECLUTING_MEMBER:
+                sendMessage += f' {member.display_name}'
+            await ROBIN_GUILD.RECLUIT_LOG_CH.send(sendMessage)
 
 #endregion
 ##############################################################################################
@@ -529,7 +529,10 @@ async def loop():
                     ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.send(
                         content=recluitMessageReplace(sendItem.text, ROBIN_GUILD.timeTable[0]),
                         files=sendItem.imgs,
-                        view=RecruitView(msg=sendItem.text, timeout=60*20, disable_on_timeout=False))
+                        view=RecruitView(
+                            msg=sendItem.text,
+                            duration=(ROBIN_GUILD.timeTable[0] - dt.now()).total_seconds() - 60*10
+                            ))
                 else:
                     await ROBIN_GUILD.PARTY_CH.send(
                         content=recluitMessageReplace(sendItem.text, ROBIN_GUILD.timeTable[0]),
@@ -596,7 +599,7 @@ async def loop():
 
             # パーティ通知メッセージ
             await ROBIN_GUILD.PARTY_CH.send(ROBIN_GUILD.timeTable[0].strftime('## %H時のパーティ編成が完了しました\n参加者は ___**サーバー3**___ へ\n原則、一番上がリーダーです'), \
-                                            view=FormationTopView(timeout=3600))
+                                            view=FormationTopView(duration=((ROBIN_GUILD.timeTable[0] + delta(hours=1)) - dt.now()).total_seconds()))
             
             for party in ROBIN_GUILD.parties:
                 party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
@@ -626,7 +629,8 @@ async def loop():
                 party.thread = await party.message.create_thread(name=f'Party:{party.number}', auto_archive_duration=60)
                 if party.membersNum() < 4: # 4人以下の時はリアクション
                     await party.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
-                party.threadControlMessage = await party.thread.send(view=PartyView(timeout=3600))
+                party.threadControlMessage = await party.thread.send(
+                    view=PartyView(duration=((ROBIN_GUILD.timeTable[0] + delta(hours=1)) - dt.now()).total_seconds()))
                 if party.aliance:
                     try:
                         await party.sendAlianceInfo()
@@ -1015,14 +1019,32 @@ class RoleManageView(discord.ui.View):
         await interaction.response.send_message(f'{interaction.user.mention}全ての高速可能ロールを削除', ephemeral=True, delete_after=5)
 
 class ApproveView(discord.ui.View):
-    def __init__(self, *items, timeout = None, disable_on_timeout = True):
-        super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
+    def __init__(self, *items, duration:float=None, timeout = None, disable_on_timeout = True):
         self.startTime = perf_counter()
+        self.duration = duration
+        # durationが指定されていればtimeoutを有効化
+        if self.duration is not None:
+            timeout = self.duration
+            disable_on_timeout = False
+        super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
     async def on_timeout(self):
         party = searchLightParty(self.message.channel, ROBIN_GUILD.parties)
         requestMember = party.joins[self.message]
         await on_reaction_remove(ROBIN_GUILD.RECLUTING_EMOJI, party.message)
         await ROBIN_GUILD.PARTY_CH.send(f'{requestMember.mention}パーティ{party.number}の参加申請がタイムアウトしました', delete_after=60)
+        self.disable_all_items()
+        await self.message.edit(view=self)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.timeout is not None and self.duration is not None:
+            self.timeout = self.startTime + self.duration - perf_counter()
+            await self.message.edit(view=self)
+        party = searchLightParty(interaction.message, ROBIN_GUILD.parties)
+        if party is None or not party.isMember(interaction.user):
+            await interaction.response.send_message(f'パーティ外からの操作はできません', delete_after=5, ephemeral=True)
+            return False
+        return True
+
     @discord.ui.button(label='承認', style=discord.ButtonStyle.blurple)
     async def approve(self, button:discord.ui.Button, interaction:discord.Interaction):
         try:
@@ -1032,7 +1054,7 @@ class ApproveView(discord.ui.View):
             party = searchLightParty(message.channel, ROBIN_GUILD.parties)
             if user.id in {participant.id for participant in party.members}: # パーティメンバである
                 self.disable_on_timeout = False
-                buttonAllDisable(self.children)
+                self.disable_all_items()
                 await interaction.response.edit_message(view=self)
                 print('パーティメンバによる承認')
                 thread = message.channel
@@ -1044,6 +1066,7 @@ class ApproveView(discord.ui.View):
                 await party.removeJoinRequest(joinMember) # メンバのリクエストを全パーティから削除
                 await party.joinMember(Participant(joinMember, set(role for role in joinMember.roles if role in ROBIN_GUILD.ROLES.keys())))
                 # await thread.starting_message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember) # リアクション処理
+                await interaction.message.edit(view=DummyApproveView())
             else:
                 print('パーティメンバ以外による承認')
                 await interaction.response.send_message(f'{interaction.user.mention}\nパーティメンバ以外は操作できません', ephemeral=True, delete_after=5)
@@ -1059,9 +1082,31 @@ class DummyApproveView(discord.ui.View):
         pass
 
 class PartyView(discord.ui.View):
-    def __init__(self, *items, timeout = None, disable_on_timeout = True):
-        super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
+    def __init__(self, *items, duration:float=None, timeout = None, disable_on_timeout = True):
         self.startTime = perf_counter()
+        self.duration = duration
+        # durationが指定されていればtimeoutを有効化
+        if self.duration is not None:
+            timeout = self.duration
+            disable_on_timeout = False
+        super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
+
+    async def on_timeout(self):
+        self.disable_all_items()
+        await self.message.edit(view=self)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.timeout is not None and self.duration is not None:
+            self.timeout = self.startTime + self.duration - perf_counter()
+            await self.message.edit(view=self)
+        if ROBIN_GUILD.MEMBER_ROLE not in interaction.user.roles:
+            await interaction.response.send_message(f'参加権がありません', delete_after=5, ephemeral=True)
+            return False
+        party = searchLightParty(interaction.message, ROBIN_GUILD.parties)
+        if party is None or not party.isMember(interaction.user):
+            await interaction.response.send_message(f'パーティ外からの操作はできません', delete_after=5, ephemeral=True)
+            return False
+        return True
 
     @discord.ui.button(label='パーティを抜ける', style=discord.ButtonStyle.gray, row=2)
     async def leaveParty(self, button:discord.ui.Button, interaction:discord.Interaction):
@@ -1117,9 +1162,25 @@ class PartyView(discord.ui.View):
             await party.removeGuest()
 
 class FormationTopView(discord.ui.View):
-    def __init__(self, *items, timeout = None, disable_on_timeout = True):
-        super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
+    def __init__(self, *items, duration:float=None, timeout = None, disable_on_timeout = True):
         self.startTime = perf_counter()
+        self.duration = duration
+        # durationが指定されていればtimeoutを有効化
+        if self.duration is not None:
+            timeout = self.duration
+            disable_on_timeout = False
+        super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
+
+    async def on_timeout(self):
+        self.disable_all_items()
+        await self.message.edit(view=self)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.timeout is not None and self.duration is not None:
+            self.timeout = self.startTime + self.duration - perf_counter()
+            await self.message.edit(view=self)
+        return True
+
     @discord.ui.button(label='新規パーティ生成', style=discord.ButtonStyle.blurple)
     async def newPartyButton(self, button:discord.ui.Button, interaction:discord.Interaction):
         print(f'{dt.now()} New Party button from {interaction.user.display_name}')
@@ -1147,17 +1208,30 @@ async def createNewParty(user:discord.Member, free:bool=False):
     newParty = LightParty(newPartyNum, [Participant(user, roles)], free=free)
     newParty.message = await ROBIN_GUILD.PARTY_CH.send(newParty.getPartyMessage(ROBIN_GUILD.ROLES))
     newParty.thread = await newParty.message.create_thread(name=f'Party:{newParty.number}', auto_archive_duration=60)
-    timeout = (ROBIN_GUILD.timeTable[0] - dt.now() + delta(minutes=60))
-    newParty.threadControlMessage = await newParty.thread.send(view=PartyView(timeout=timeout.seconds))
+    newParty.threadControlMessage = await newParty.thread.send(view=PartyView(duration=((ROBIN_GUILD.timeTable[0] + delta(hours=1)) - dt.now()).total_seconds()))
     await newParty.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
     ROBIN_GUILD.parties.append(newParty)
 
 class RecruitView(discord.ui.View):
-    def __init__(self, msg:str, *items, timeout=None, disable_on_timeout=True):
+    def __init__(self, msg:str, duration:float=None, *items, timeout = None, disable_on_timeout = True):
+        self.startTime = perf_counter()
+        self.duration = duration
         self.msg = msg
-        super().__init__(*items, timeout=timeout, disable_on_timeout = disable_on_timeout)
+        # durationが指定されていればtimeoutを有効化
+        if self.duration is not None:
+            timeout = self.duration
+            disable_on_timeout = False
+        super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
+
     async def on_timeout(self):
-        buttonAllDisable(self.children)
+        self.disable_all_items()
+        await self.message.edit(view=self)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.timeout is not None and self.duration is not None:
+            self.timeout = self.startTime + self.duration - perf_counter()
+            await self.message.edit(view=self)
+        return True
 
     @discord.ui.button(label='参加 [beta]', style=discord.ButtonStyle.green)
     async def joinReclute(self, button:discord.ui.Button, interaction:discord.Interaction):
@@ -1168,19 +1242,15 @@ class RecruitView(discord.ui.View):
             print(f'{now} Recruit button from {interaction.user.display_name} but already joined')
             await interaction.response.send_message(
                 f'参加済です\nテスト中ですので、編成に失敗する恐れがあります。\n念のために{ROBIN_GUILD.RECLUTING_EMOJI}リアクションもしておくと確実です。',
-                ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 10.)
-            # await interaction.response.send_message(
-            #     f'参加済です', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 10.)
+                ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 600.)
         else:
             print(f'{now} Recruit button from {interaction.user.display_name}')
             ROBIN_GUILD.RECLUTING_MEMBER.add(interaction.user)
             await interaction.response.send_message(
                 f'参加を受け付けました\nテスト中ですので、編成に失敗する恐れがあります。\n念のために{ROBIN_GUILD.RECLUTING_EMOJI}リアクションもしておくと確実です。',
-                ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 10.)
-            # await interaction.response.send_message(
-            #     f'参加を受け付けました', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 10.)
+                ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 600.)
             sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :green_square: {interaction.user.display_name}\n現在の参加者:'
-            interaction.message.content = recluitMessageReplace(ROBIN_GUILD.reclutingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER))
+            await interaction.message.edit(recluitMessageReplace(self.msg, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER)))
             for member in ROBIN_GUILD.RECLUTING_MEMBER:
                 sendMessage += f' {member.display_name}'
             await ROBIN_GUILD.RECLUIT_LOG_CH.send(sendMessage)
@@ -1192,9 +1262,9 @@ class RecruitView(discord.ui.View):
         if interaction.user in ROBIN_GUILD.RECLUTING_MEMBER:
             print(f'{now} Reclute leave button from {interaction.user.display_name}')
             ROBIN_GUILD.RECLUTING_MEMBER.remove(interaction.user)
-            await interaction.response.send_message('辞退を受け付けました', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 10.)
-            # await interaction.response.send_message('辞退を受け付けました', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 10.)
-            interaction.message.content = recluitMessageReplace(ROBIN_GUILD.reclutingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER))
+            await interaction.response.send_message('辞退を受け付けました', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 600.)
+            await interaction.message.edit(recluitMessageReplace(self.msg, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER)))
+            await interaction.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, interaction.user)
             sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :red_square: {interaction.user.display_name}\n現在の参加者:'
             # 更新メッセージ
             for member in ROBIN_GUILD.RECLUTING_MEMBER:
@@ -1203,7 +1273,7 @@ class RecruitView(discord.ui.View):
 
         else:
             print(f'{now} Reclute leave button from {interaction.user.display_name} but not joined')
-            await interaction.response.send_message('辞退済です', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 10.)
+            await interaction.response.send_message('辞退済です', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 600.)
 
 class RebootView(discord.ui.View):
     def __init__(self, *items, timeout=None, disable_on_timeout=True):
@@ -1216,25 +1286,20 @@ class RebootView(discord.ui.View):
         except Exception as e:
             printTraceback(e)
             rebootScadule = True
-        buttonAllDisable(self.children)
+        self.disable_all_items()
         print(f'{dt.now()} 再起動スケジュールが設定されました')
         await interaction.response.edit_message(view=self)
         await interaction.respond('再起動スケジュールを設定しました')
     @discord.ui.button(label='すぐに再起動', style=discord.ButtonStyle.red)
     async def justReboot(self, button:discord.ui.Button, interaction:discord.Interaction):
-        buttonAllDisable(self.children)
+        self.disable_all_items()
         await interaction.response.edit_message(view=self)
         await f_reboot(interaction)
     @discord.ui.button(label='安定版再起動', style=discord.ButtonStyle.red)
     async def stableReboot(self, button:discord.ui.Button, interaction:discord.Interaction):
-        buttonAllDisable(self.children)
+        self.disable_all_items()
         await interaction.response.edit_message(view=self)
         await f_stableReboot()
-
-def buttonAllDisable(children):
-    for child in children:
-        if isinstance(child, discord.ui.Button):
-            child.disabled = True
 
 #endregion
 
@@ -1302,7 +1367,7 @@ async def f_restart(ctx:discord.ApplicationContext):
     if len(ROBIN_GUILD.timeTable) == 0:
         await f_reboot(ctx)
     if ROBIN_GUILD.timeTable[0] - delta(minutes=40) < dt.now():
-        await ctx.respond('パーティ機能作動中または，まもなくパーティ編成を開始します\n再起動スケジュールを選択してください', view=RebootView(timeout=60, disable_on_timeout=False))
+        await ctx.respond('パーティ機能作動中または，まもなくパーティ編成を開始します\n再起動スケジュールを選択してください', view=RebootView())
     else:
         await f_reboot(ctx)
 
