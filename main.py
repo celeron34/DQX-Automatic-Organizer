@@ -278,6 +278,12 @@ class SpeedParty(Party):
 
     def isMember(self, user:discord.Member):
         return any(map(lambda members:user in map(lambda x:x.user, members), self.members.values()))
+    
+    def membersNum(self) -> int:
+        result = 0
+        for roleMembers in self.members.values():
+            result += sum(map(lambda x:x is not None, roleMembers))
+        return result
 
 class Guild:
     def __init__(self, guild):
@@ -623,7 +629,7 @@ async def loop():
             print('participants')
             print([participant.display_name for participant in participants])
             
-            await ROBIN_GUILD.PARTY_LOG.send(f'{ROBIN_GUILD.timeTable[0].strftime("%y-%m-%d-%H")} {ROBIN_GUILD.RECLUTING_EMOJI} {participantNum}')
+            await ROBIN_GUILD.PARTY_LOG.send(f'{ROBIN_GUILD.timeTable[0].strftime("%y/%m/%d %H")} 初期編成参加数 {participantNum}')
 
         # typingここまで
 
@@ -724,6 +730,14 @@ async def loop():
     # 1時間後 周回終わり
     elif now == ROBIN_GUILD.timeTable[0] + delta(minutes=60):
         global rebootScadule
+
+        try:
+            memberSum = 0
+            for party in ROBIN_GUILD.parties:
+                memberSum += party.membersNum()
+            await ROBIN_GUILD.PARTY_LOG.send(ROBIN_GUILD.timeTable[0].strftime(f'%y/%m/%d %H 最終参加数 {memberSum}'))
+        except Exception as e:
+            printTraceback(e)
         
         del ROBIN_GUILD.timeTable[0] # 先頭を削除
         if len(ROBIN_GUILD.timeTable) < 3:
