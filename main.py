@@ -608,8 +608,8 @@ async def loop():
             shuffle(participants)
             print(f'shaffled: {[participant.display_name for participant in participants]}')
             participantsCopy = participants.copy()
-            for party in speedFormation(participants):
-                ROBIN_GUILD.parties.append(party)
+            # for party in speedFormation(participants):
+            #     ROBIN_GUILD.parties.append(party)
             for party in lightFormation(participants, len(ROBIN_GUILD.parties)):
                 ROBIN_GUILD.parties.append(party)
             print(f'formation algorithm time: {dt.now() - formationStartTime}')
