@@ -538,26 +538,18 @@ async def loop():
         # パーティ編成クラスをインスタンス化，メッセージ送信
         print(f'################### {dt.now()} Recluting ###################')
         ROBIN_GUILD.RECLUTING_MEMBER.clear()
-        try: # ボタン付き募集文テスト
-            sendItems = getDirectoryItems(f'guilds/{ROBIN_GUILD.GUILD.id}/recluitingMessage')
-            for index, sendItem in enumerate(sendItems):
-                if index - len(sendItems) + 1 == 0:
-                    # 最後のメッセージ
-                    ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.send(
-                        content=recluitMessageReplace(sendItem.text, ROBIN_GUILD.timeTable[0]),
-                        files=sendItem.imgs,
-                        view=RecruitView(
-                            msg=sendItem.text,
-                            duration=(ROBIN_GUILD.timeTable[0] - dt.now()).total_seconds() - 60*10
-                            ))
-                else:
-                    await ROBIN_GUILD.PARTY_CH.send(
-                        content=recluitMessageReplace(sendItem.text, ROBIN_GUILD.timeTable[0]),
-                        files=sendItem.imgs)
-        except Exception as e:
-            printTraceback(e)
-            ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.send(
-                ROBIN_GUILD.timeTable[0].strftime(f'# 【全兵団周回 %H時】\n参加希望は{ROBIN_GUILD.RECLUTING_EMOJI}リアクション願います'))
+        sendItems = getDirectoryItems(f'guilds/{ROBIN_GUILD.GUILD.id}/recluitingMessage')
+        for index, sendItem in enumerate(sendItems):
+            if index - len(sendItems) + 1 == 0:
+                # 最後のメッセージ
+                ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.send(
+                    content=recluitMessageReplace(sendItem.text, ROBIN_GUILD.timeTable[0]),
+                    files=sendItem.imgs
+                    )
+            else:
+                await ROBIN_GUILD.PARTY_CH.send(
+                    content=recluitMessageReplace(sendItem.text, ROBIN_GUILD.timeTable[0]),
+                    files=sendItem.imgs)
         await ROBIN_GUILD.reclutingMessage.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI) # 参加リアクション追加
         # await ROBIN_GUILD.reclutingMessage.add_reaction(ROBIN_GUILD.LIGHTPARTY_EMOJI) # ライトパーティリアクション追加
         # await ROBIN_GUILD.reclutingMessage.add_reaction(ROBIN_GUILD.FULLPARTY_EMOJI) # フルパーティリアクション追加
