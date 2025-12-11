@@ -557,7 +557,7 @@ async def loop():
         except Exception as e:
             printTraceback(e)
             ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.send(
-                ROBIN_GUILD.timeTable[0].strftime(f'# 【異星周回 %H時】\n参加希望は{ROBIN_GUILD.RECLUTING_EMOJI}リアクション願います'))
+                ROBIN_GUILD.timeTable[0].strftime(f'# 【全兵団周回 %H時】\n参加希望は{ROBIN_GUILD.RECLUTING_EMOJI}リアクション願います'))
         await ROBIN_GUILD.reclutingMessage.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI) # 参加リアクション追加
         # await ROBIN_GUILD.reclutingMessage.add_reaction(ROBIN_GUILD.LIGHTPARTY_EMOJI) # ライトパーティリアクション追加
         # await ROBIN_GUILD.reclutingMessage.add_reaction(ROBIN_GUILD.FULLPARTY_EMOJI) # フルパーティリアクション追加
