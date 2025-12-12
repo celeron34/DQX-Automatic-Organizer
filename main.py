@@ -1217,7 +1217,7 @@ class FormationTopView(discord.ui.View):
     @discord.ui.button(label='新規パーティ生成', style=discord.ButtonStyle.blurple)
     async def newPartyButton(self, button:discord.ui.Button, interaction:discord.Interaction):
         print(f'{dt.now()} New Party button from {interaction.user.display_name}')
-        if not checkParticipationRight(interaction.user):
+        if not await checkParticipationRight(interaction.user):
             return
         user = interaction.user
         # SpeedParty に所属しているなら新規作成を禁止
