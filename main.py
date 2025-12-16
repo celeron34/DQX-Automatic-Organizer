@@ -37,9 +37,8 @@ rebootScadule:bool|discord.TextChannel = False
 #region Classese
 
 class RoleInfo:
-    def __init__(self, emoji:discord.Emoji, count:int, name:str):
+    def __init__(self, emoji:discord.Emoji, name:str):
         self.emoji:discord.Emoji = emoji
-        self.count:int = count
         self.name:str = name
         
 class PartyMember: # パーティメンバ親クラス
@@ -774,8 +773,8 @@ async def loop():
 #endregion
 
 #region 関数もろもろ
-async def command_message(textch:discord.TextChannel) -> discord.Message:
-    msg = await textch.send(content=f'## 追加・削除したいロールをタップ', view=RoleManageView())
+async def command_message(textch:discord.TextChannel, raidRoles) -> discord.Message:
+    msg = await textch.send(content=f'## 追加・削除したいロールをタップ', view=RoleManageView(raidRoles))
     return msg
 
 async def getTimetable(updateStatus:bool=True) -> list[dt]:
@@ -1013,31 +1012,29 @@ def printTraceback(e):
 ##############################################################################################
 #region Views
 class RoleManageView(discord.ui.View):
-    def __init__(self, *items, timeout = None, disable_on_timeout = True):
+    def __init__(self, raidRoles, *items, timeout = None, disable_on_timeout = True):
+        self.roleEmoji = {re['role']:re['emoji'] for re in raidRoles.values()}
         super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
         # 動的にボタンを生成してコールバックをクロージャで捕捉する
-        for role, roleInfo in ROBIN_GUILD.ROLES.items():
-            btn = discord.ui.Button(label=roleInfo.name, emoji=roleInfo.emoji, style=discord.ButtonStyle.blurple)
+        for roleName, roleInfo in raidRoles.items():
+            btn = discord.ui.Button(label=roleName, emoji=roleInfo['emoji'], style=discord.ButtonStyle.blurple)
             # クロージャで role を固定する
-            async def callback(interaction: discord.Interaction, role=role, label=roleInfo.name):
-                if role in [role for role in interaction.user.roles if role in ROBIN_GUILD.ROLES.keys()]:
+            async def callback(interaction: discord.Interaction, role=roleInfo['role'], label=roleName):
+                if role in [role for role in interaction.user.roles if role in self.roleEmoji.keys()]:
                     await interaction.user.remove_roles(role)
-                    msg = f'[{label}] を削除\n現在のロール: '
-                    for role in interaction.user.roles:
-                        if role in ROBIN_GUILD.ROLES.keys(): msg += str(ROBIN_GUILD.ROLES[role].emoji)
-                    await interaction.response.send_message(msg, ephemeral=True, delete_after=5)
+                    msg = f'[{self.roleEmoji[role]}{label}] を削除\n現在のロール: '
                 else:
                     await interaction.user.add_roles(role)
-                    msg = f'[{label}] を追加\n現在のロール: '
-                    for role in interaction.user.roles:
-                        if role in ROBIN_GUILD.ROLES.keys(): msg += str(ROBIN_GUILD.ROLES[role].emoji)
-                    await interaction.response.send_message(msg, ephemeral=True, delete_after=5)
+                    msg = f'[{self.roleEmoji[role]}{label}] を追加\n現在のロール: '
+                for role in interaction.user.roles:
+                    if role in self.roleEmoji.keys(): msg += str(self.roleEmoji[role])
+                await interaction.response.send_message(msg, ephemeral=True, delete_after=5)
             btn.callback = callback
             self.add_item(btn)
 
     @discord.ui.button(label='オールクリア', style=discord.ButtonStyle.red)
     async def all_clear(self, button:discord.ui.Button, interaction:discord.Interaction):
-        for role in ROBIN_GUILD.ROLES.keys():
+        for role in self.roleEmoji.keys():
             if role in interaction.user.roles:
                 await interaction.user.remove_roles(role)
         await interaction.response.send_message(f'{interaction.user.mention}全ての高速可能ロールを削除', ephemeral=True, delete_after=5)
@@ -1491,8 +1488,8 @@ async def f_fetch():
         # ロールゲット
         ROBIN_GUILD.ROLES = {
                 ROBIN_GUILD.GUILD.get_role(roleInfo['role']) : \
-                RoleInfo(client.get_emoji(roleInfo['emoji']), roleInfo['count'], roleName) \
-                    for roleName, roleInfo in guildInfo['partyRoles'].items()
+                RoleInfo(client.get_emoji(roleInfo['emoji']), roleName) \
+                    for roleName, roleInfo in guildInfo['raidRoles'].items()
             }
         ROBIN_GUILD.MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['member'])
         ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['unapplide'])
@@ -1500,9 +1497,13 @@ async def f_fetch():
         ROBIN_GUILD.STATIC_PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['staticPriority'])
         ROBIN_GUILD.MASTER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['master'])
 
+        raidRoles = {roleName:
+                     {'role':ROBIN_GUILD.GUILD.get_role(roleInfo['role']), 'emoji':client.get_emoji(roleInfo['emoji'])}
+                     for roleName, roleInfo in guildInfo['raidRoles'].items()
+                    }
         # ローリングチャンネルイニシャライズ
         await ROBIN_GUILD.COMMAND_CH.purge()
-        ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH)
+        ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH, raidRoles)
 
         await ROBIN_GUILD.GUILD.chunk()
 
