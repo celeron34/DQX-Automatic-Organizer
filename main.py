@@ -735,7 +735,7 @@ async def loop():
             ROBIN_GUILD.timeTable = await getTimetable()
             for t in ROBIN_GUILD.timeTable:
                 print(t)
-        msg = ROBIN_GUILD.timeTable[0].strftime('## 次回の異星は %H時 です\n%H時 > ')
+        msg = ROBIN_GUILD.timeTable[0].strftime('## 次回の全兵団は %H時 です\n%H時 > ')
         msg += ROBIN_GUILD.timeTable[1].strftime('%H時 > ')
         msg += ROBIN_GUILD.timeTable[2].strftime('%H時 > [...](<https://hiroba.dqx.jp/sc/tokoyami/>)')
         await ROBIN_GUILD.PARTY_CH.send(msg)
