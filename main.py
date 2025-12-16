@@ -1050,6 +1050,7 @@ class ApproveView(discord.ui.View):
         super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
     async def on_timeout(self):
         party = searchLightParty(self.message.channel, ROBIN_GUILD.parties)
+        if party is None: return
         requestMember = party.joins[self.message]
         await self.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, party.message)
         await ROBIN_GUILD.PARTY_CH.send(f'{requestMember.mention} パーティ{party.number}の参加申請がタイムアウト', delete_after=30)
