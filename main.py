@@ -117,17 +117,17 @@ class LightParty(Party):
     def membersNum(self) -> int:
         return len(self.members)
 
-    def getPartyMessage(self, guildRolesEmoji:dict[discord.Role,RoleInfo]) -> str:
+    def getPartyMessage(self, guildRolesEmoji:dict[discord.Role, discord.Emoji]) -> str:
         msg = ''
         if self.free:
             msg += '## 途中抜けOK\n'
-        msg += f'\| 【パーティ:{self.number}】'
+        msg += f'【パーティ:{self.number}】'
         if self.aliance:
             msg += f'同盟 -> [パーティ{self.aliance.number}]({self.aliance.message.jump_url})'
         for player in self.members:
-            msg += f'\n\| {player.mention}'
+            msg += f'\n{player.mention}'
             for role in player.roles:
-                msg += str(guildRolesEmoji[role].emoji)
+                msg += str(guildRolesEmoji[role])
         return msg
     
     async def joinRequest(self, member:discord.Member) -> bool:
@@ -234,23 +234,22 @@ class LightParty(Party):
         return all(map(lambda member: not isinstance(member, Participant), self.members))
 
 class SpeedParty(Party):
-    def __init__(self, number, rolesNum:dict[discord.Role, int]):
+    def __init__(self, number, rolesNum:list[dict[discord.Role, int]]):
         super().__init__(number)
-        self.members:dict[discord.Role,list[Participant|None]] = {role:[None] * num for role, num in rolesNum.items()}
+        self.members:list[dict[discord.Role,list[Participant|None]]] = [{role:[None] * num for role, num in party} for party in rolesNum]
 
-    def getPartyMessage(self, guildRolesEmoji:dict[discord.Role,RoleInfo]) -> str:
+    def getPartyMessage(self, guildRolesEmoji:dict[discord.Role, discord.Emoji]) -> str:
         if ROBIN_GUILD.FULLPARTY_EMOJI:
-            msg = f'\| {ROBIN_GUILD.FULLPARTY_EMOJI} 高速パーティ:{self.number} {ROBIN_GUILD.FULLPARTY_EMOJI}'
+            msg = f'{ROBIN_GUILD.FULLPARTY_EMOJI} 高速パーティ:{self.number} {ROBIN_GUILD.FULLPARTY_EMOJI}'
         else:
-            msg = f'\| 高速パーティ:{self.number}'
-        blockCount = 0
-        for partyRole, members in self.members.items():
-            if blockCount == 4: msg += '\n-# = = = = = = = = = = = = = ='
-            for member in members:
-                msg += f'\n{guildRolesEmoji[partyRole].emoji} \| {member.mention}'
-                for memberRole in member.roles:
-                    msg += str(guildRolesEmoji[memberRole].emoji)
-            blockCount += 1
+            msg = f'高速パーティ:{self.number}'
+        for partyCount, party in enumerate(self.members):
+            for partyRole, members in party.items():
+                if partyCount > 0: msg += '\n-# = = = = = = = = = = = = = ='
+                for member in members:
+                    msg += f'\n{guildRolesEmoji[partyRole]} {member.mention}'
+                    for memberRole in member.roles:
+                        msg += str(guildRolesEmoji[memberRole])
         return msg
 
     def noneCount(self) -> int:
@@ -316,6 +315,8 @@ class Guild:
         self.MASTER_ROLE:discord.Role = None # マスターロール
         
         self.ROLES:dict[discord.Role, RoleInfo] = None
+        self.RAID_ROLES:dict[discord.Role, int] = None
+        self.RAIDS:dict[list[dict[discord.Role, any]]] = None
         self.RECLUTING_MEMBER:set[discord.Member] = set() # 募集参加メンバ
         # self.ROLES:dict[discord.Role, ]
 
@@ -485,7 +486,7 @@ async def reply_message(message:discord.Message, send:str, accept:bool):
 @client.event
 async def on_message_delete(message):
     if message == ROBIN_GUILD.COMMAND_MSG:
-        ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH)
+        ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH, ROBIN_GUILD.RAID_ROLES)
 
 #endregion
 
@@ -610,7 +611,7 @@ async def loop():
                                             view=FormationTopView(duration=((ROBIN_GUILD.timeTable[0] + delta(hours=1)) - dt.now()).total_seconds()))
             
             for party in ROBIN_GUILD.parties:
-                party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.ROLES))
+                party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.RAID_ROLES))
             
             print(f'{dt.now()} Add Log')
             with open(f'reactionLog/{ROBIN_GUILD.GUILD.name}.csv', 'a', encoding='utf8') as f:
@@ -892,7 +893,7 @@ async def autoJoinParticipant(user:discord.Member):
 
 ##############################################################################################
 #region パーティ編成アルゴリズム
-def speedFormation(participants:list[Participant]) -> list[SpeedParty]:
+def speedFormation(participants:list[Participant], formation:dict[discord.Role, int]) -> list[SpeedParty]:
     '''
     <h1>Parameter</h1>
     players: list[Participant]
@@ -900,13 +901,13 @@ def speedFormation(participants:list[Participant]) -> list[SpeedParty]:
     List[List[Participant]]
     '''
     parties:list[SpeedParty] = []
-    parties.append(SpeedParty(len(parties)+1, {role:info.count for role, info in ROBIN_GUILD.ROLES.items()}))
+    parties.append(SpeedParty(len(parties)+1, {role:count for role, count in formation.items()}))
     loopFlg = True
     while loopFlg:
         partyNoneCount = parties[-1].noneCount()
         if partyNoneCount > len(participants) or partyNoneCount == 0 and len(participants) < 8: break
         if partyNoneCount == 0: # 空きのあるパーティがない 新しい空のパーティを作る
-            parties.append(SpeedParty(len(parties)+1, {role:info.count for role, info in ROBIN_GUILD.ROLES.items()}))
+            parties.append(SpeedParty(len(parties)+1, {role:count for role, count in formation.items()}))
         for participantNum in range(len(participants)):
             if addHispeedParty(parties, participants[participantNum]):
                 del participants[participantNum]
@@ -1012,15 +1013,15 @@ def printTraceback(e):
 ##############################################################################################
 #region Views
 class RoleManageView(discord.ui.View):
-    def __init__(self, raidRoles, *items, timeout = None, disable_on_timeout = True):
-        self.roleEmoji = {re['role']:re['emoji'] for re in raidRoles.values()}
+    def __init__(self, raidRoles:dict[discord.Role, discord.Emoji], *items, timeout = None, disable_on_timeout = True):
+        self.roleEmoji = raidRoles
         super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
         # 動的にボタンを生成してコールバックをクロージャで捕捉する
-        for roleName, roleInfo in raidRoles.items():
-            btn = discord.ui.Button(label=roleName, emoji=roleInfo['emoji'], style=discord.ButtonStyle.blurple)
+        for role, emoji in self.roleEmoji.items():
+            btn = discord.ui.Button(label=role.name, emoji=emoji, style=discord.ButtonStyle.blurple)
             # クロージャで role を固定する
-            async def callback(interaction: discord.Interaction, role=roleInfo['role'], label=roleName):
-                if role in [role for role in interaction.user.roles if role in self.roleEmoji.keys()]:
+            async def callback(interaction: discord.Interaction, role=role, label=role.name):
+                if role in [r for r in interaction.user.roles if r in self.roleEmoji.keys()]:
                     await interaction.user.remove_roles(role)
                     msg = f'[{self.roleEmoji[role]}{label}] を削除\n現在のロール: '
                 else:
@@ -1498,13 +1499,31 @@ async def f_fetch():
         ROBIN_GUILD.STATIC_PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['staticPriority'])
         ROBIN_GUILD.MASTER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['master'])
 
-        raidRoles = {roleName:
+        ROBIN_GUILD.RAIDS = [
+            {
+                'raidName':raidInfo['raidName'],
+                'png': raidInfo['png'],
+                'lightParty': raidInfo['lightParty'],
+                'speedPartyRoles': [
+                    [
+                        {
+                            'name':role['name'],
+                            'role':ROBIN_GUILD.GUILD.get_role(role['role']),
+                            'emoji':client.get_emoji(role['emoji']),
+                            'count':role['count']
+                        } for role in roles
+                    ] for roles in raidInfo['speedPartyRoles']
+                ]
+            } for raidInfo in guildInfo['raids']
+        ]
+
+        ROBIN_GUILD.RAID_ROLES = {roleName:
                      {'role':ROBIN_GUILD.GUILD.get_role(roleInfo['role']), 'emoji':client.get_emoji(roleInfo['emoji'])}
                      for roleName, roleInfo in guildInfo['raidRoles'].items()
                     }
         # ローリングチャンネルイニシャライズ
         await ROBIN_GUILD.COMMAND_CH.purge()
-        ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH, raidRoles)
+        ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH, ROBIN_GUILD.RAID_ROLES)
 
         await ROBIN_GUILD.GUILD.chunk()
 
