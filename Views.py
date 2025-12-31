@@ -1,66 +1,72 @@
-from __future__ import annotations # 必ず先頭に
+from __future__ import annotations # 再帰に必要 必ず先頭に
 
-from discord import User, Member, Interaction, ButtonStyle, Thread
+from discord import User, Member, Interaction, ButtonStyle, Thread, Role, Emoji
 from discord.ui import View, Button, button
 from datetime import datetime as dt
 from time import perf_counter
+from classes import *
+from general import *
+from formation import *
 
 
 class RoleManageView(View):
-    def __init__(self, *items, timeout = None, disable_on_timeout = True):
+    def __init__(self, raidRoles:dict[Role, Emoji], *items, timeout = None, disable_on_timeout = True):
+        self.roleEmoji = raidRoles
         super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
-    async def roleManage(self, label:str, emoji:str, user:User|Member):
-        role = emoji2role(emoji)
-        if role in user.roles:
-            # ロールがあるから削除
-            print(f'{dt.now()} Delete role {user} {label}')
-            await user.remove_roles(role)
-            rep = await ROBIN_GUILD.COMMAND_CH.send(f'{user.mention} [{label}] を削除')
-        else:
-            # ロールがないから追加
-            print(f'{dt.now()} Add role {user} {label}')
-            await user.add_roles(role)
-            rep = await ROBIN_GUILD.COMMAND_CH.send(f'{user.mention} [{label}] を追加')
-        await rep.delete(delay=5)
+        # 動的にボタンを生成してコールバックをクロージャで捕捉する
+        for role, emoji in self.roleEmoji.items():
+            btn = Button(label=role.name, emoji=emoji, style=ButtonStyle.blurple)
+            # クロージャで role を固定する
+            async def callback(interaction: Interaction, role=role, label=role.name):
+                if role in [r for r in interaction.user.roles if r in self.roleEmoji.keys()]:
+                    await interaction.user.remove_roles(role)
+                    msg = f'[{self.roleEmoji[role]}{label}] を削除\n現在のロール: '
+                else:
+                    await interaction.user.add_roles(role)
+                    msg = f'[{self.roleEmoji[role]}{label}] を追加\n現在のロール: '
+                for role in interaction.user.roles:
+                    if role in self.roleEmoji.keys(): msg += str(self.roleEmoji[role])
+                await interaction.response.send_message(msg, ephemeral=True, delete_after=5)
+            btn.callback = callback
+            self.add_item(btn)
 
-    @button(label='魔戦', emoji='<:magic_knight:1345708222962470952>', row=1)
-    async def magicKnight(self, button:Button, interaction:Interaction):
-        await interaction.response.defer()
-        await self.roleManage(button.label, button.emoji, interaction.user)
-    @button(label='先導', emoji='<:boomerang:1345710507398529085>', row=1)
-    async def boomerang(self, button:Button, interaction:Interaction):
-        await interaction.response.defer()
-        await self.roleManage(button.label, button.emoji, interaction.user)
-    @button(label='霧', emoji='<:buttarfly:1345708049838641234>', row=1)
-    async def butterfly(self, button:Button, interaction:Interaction):
-        await interaction.response.defer()
-        await self.roleManage(button.label, button.emoji, interaction.user)
-    @button(label='札', emoji='<:card:1345708117618458695>', row=2)
-    async def card(self, button:Button, interaction:Interaction):
-        await interaction.response.defer()
-        await self.roleManage(button.label, button.emoji, interaction.user)
-    @button(label='中継', emoji='<:relay:1345708094251859999>', row=2)
-    async def way(self, button:Button, interaction:Interaction):
-        await interaction.response.defer()
-        await self.roleManage(button.label, button.emoji, interaction.user)
-    @button(label='回復', emoji='<:heal:1345708066741424138>', row=2)
-    async def heal(self, button:Button, interaction:Interaction):
-        await interaction.response.defer()
-        await self.roleManage(button.label, button.emoji, interaction.user)
-    @button(label='オールクリア', row=3)
+    @button(label='オールクリア', style=ButtonStyle.red)
     async def all_clear(self, button:Button, interaction:Interaction):
-        await interaction.response.defer()
-        for role in ROBIN_GUILD.ROLES.keys():
+        for role in self.roleEmoji.keys():
             if role in interaction.user.roles:
                 await interaction.user.remove_roles(role)
-        rep = await interaction.channel.send(f'{interaction.user.mention}全ての高速可能ロールを削除')
-        await rep.delete(delay=5)
+        await interaction.response.send_message(f'{interaction.user.mention}全ての高速可能ロールを削除', ephemeral=True, delete_after=5)
 
 class ApproveView(View):
-    def __init__(self, *items, timeout = None, disable_on_timeout = True):
-        super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
+    def __init__(self, *items, duration:float=None, timeout = None, disable_on_timeout = True):
         self.startTime = perf_counter()
-    @button(label='承認')
+        self.duration = duration
+        # durationが指定されていればtimeoutを有効化
+        if self.duration is not None:
+            timeout = self.duration
+            disable_on_timeout = False
+        super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
+    async def on_timeout(self):
+        party = searchLightParty(self.message.channel, ROBIN_GUILD.parties)
+        if party is None: return
+        requestMember = party.joins[self.message]
+        await self.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, party.message)
+        await ROBIN_GUILD.PARTY_CH.send(f'{requestMember.mention} パーティ{party.number}の参加申請がタイムアウト', delete_after=30)
+        self.disable_all_items()
+        await self.message.edit(view=self)
+
+    async def interaction_check(self, interaction: Interaction) -> bool:
+        if self.timeout is not None and self.duration is not None:
+            self.timeout = self.startTime + self.duration - perf_counter()
+            await self.message.edit(view=self)
+        party = searchLightParty(interaction.channel.starting_message, ROBIN_GUILD.parties)
+        if party is None or not party.isMember(interaction.user): # パーティが存在しないかスレッドパーティのメンバでない
+            print(f'{dt.now()} ApproveView: Out of party {interaction.user}')
+            await interaction.response.send_message(f'パーティ外からの操作はできません', delete_after=5, ephemeral=True)
+            return False
+        return True
+
+    @button(label='承認', style=ButtonStyle.blurple)
     async def approve(self, button:Button, interaction:Interaction):
         try:
             message = interaction.message
@@ -68,50 +74,73 @@ class ApproveView(View):
             print(f'{dt.now()} Approve from {user} {type(user)}')
             party = searchLightParty(message.channel, ROBIN_GUILD.parties)
             if user.id in {participant.id for participant in party.members}: # パーティメンバである
-                buttonAllDisable(self.children)
+                self.disable_on_timeout = False
+                self.disable_all_items()
                 await interaction.response.edit_message(view=self)
                 print('パーティメンバによる承認')
                 thread = message.channel
                 joinMember = party.joins[message]
                 print(f'JoinMember: {joinMember}')
                 for p in ROBIN_GUILD.parties:
-                    if isinstance(p, RandomParty) and p.isMember(joinMember):
-                        p.removeMember(joinMember)
-                for p in {p for p in ROBIN_GUILD.parties if joinMember in p.joins.values()}: # 参加リアクション全削除
-                    await p.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember)
+                    if isinstance(p, LightParty) and p.isMember(joinMember):
+                        await p.removeMember(joinMember)
+                        break
+                await party.removeJoinRequest(joinMember) # メンバのリクエストを全パーティから削除
                 await party.joinMember(Participant(joinMember, set(role for role in joinMember.roles if role in ROBIN_GUILD.ROLES.keys())))
-                await party.removeJoinRequest(joinMember)
-                await thread.starting_message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember) # リアクション処理
+                # await thread.starting_message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember) # リアクション処理
+                await interaction.message.edit(view=DummyApproveView())
             else:
                 print('パーティメンバ以外による承認')
-                await interaction.response.defer()
-                msg = await interaction.channel.send(f'{interaction.user.mention}\nパーティメンバ以外は操作できません')
-                await msg.delete(delay=5)
+                await interaction.response.send_message(f'{interaction.user.mention}\nパーティメンバ以外は操作できません', ephemeral=True, delete_after=5)
                 return
         except Exception as e:
             printTraceback(e)
 
-class DummyApproveView(ApproveView):
-    def __init__(self):
-        super().__init__()
-    @button(label='承認', disabled=True)
+class DummyApproveView(View):
+    def __init__(self, *items, timeout = None, disable_on_timeout = True):
+        super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
+    @button(label='承認', disabled=True, style=ButtonStyle.blurple)
     async def approve(self, button:Button, interaction:Interaction):
         pass
 
 class PartyView(View):
-    def __init__(self, *items, timeout = None, disable_on_timeout = True):
-        super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
+    def __init__(self, *items, duration:float=None, timeout = None, disable_on_timeout = True):
         self.startTime = perf_counter()
+        self.duration = duration
+        # durationが指定されていればtimeoutを有効化
+        if self.duration is not None:
+            timeout = self.duration
+            disable_on_timeout = False
+        super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
 
-    @button(label='パーティを抜ける')
+    async def on_timeout(self):
+        self.disable_all_items()
+        await self.message.edit(view=self)
+
+    async def interaction_check(self, interaction: Interaction) -> bool:
+        if self.timeout is not None and self.duration is not None:
+            self.timeout = self.startTime + self.duration - perf_counter()
+            await self.message.edit(view=self)
+        if ROBIN_GUILD.MEMBER_ROLE not in interaction.user.roles:
+            print(f'{dt.now()} PartyView: {interaction.user} have not Member')
+            await interaction.response.send_message(f'参加権がありません', delete_after=5, ephemeral=True)
+            return False
+        party = searchLightParty(interaction.message, ROBIN_GUILD.parties)
+        if party is None or not party.isMember(interaction.user): # パーティが存在しないかスレッドパーティのメンバでない
+            print(f'{dt.now()} Party: Out of party {interaction.user}')
+            await interaction.response.send_message(f'パーティ外からの操作はできません', delete_after=5, ephemeral=True)
+            return False
+        return True
+        
+
+    @button(label='パーティを抜ける', style=ButtonStyle.gray, row=2)
     async def leaveParty(self, button:Button, interaction:Interaction):
         print(f'{dt.now()} Leave party button is pressed from {interaction.user.display_name}')
-        party:RandomParty = searchLightParty(interaction.message, ROBIN_GUILD.parties)
+        party:LightParty = searchLightParty(interaction.message, ROBIN_GUILD.parties)
         await interaction.response.defer()
         if party == None:
             print(f'非パーティメンバによるアクション')
-            msg = await interaction.channel.send(f'{interaction.user.mention}パーティメンバ以外は操作できません')
-            await msg.delete(delay=5)
+            await interaction.response.send_message(f'{interaction.user.mention}パーティメンバ以外は操作できません', delete_after=5, ephemeral=True)
             return
         if interaction.user in map(lambda x:x.user, party.members):
             # ユーザーがパーティメンバー
@@ -129,10 +158,9 @@ class PartyView(View):
                 
         else: # ユーザーが別パーティメンバ
             print('別パーティによるアクション')
-            msg = await interaction.channel.send(f'{interaction.user.mention}パーティメンバ以外は操作できません')
-            await msg.delete(delay=5)
+            await interaction.response.send_message(f'{interaction.user.mention}パーティメンバ以外は操作できません', delete_after=5, ephemeral=True)
 
-    @button(label='ゲスト追加')
+    @button(label='ゲスト追加', style=ButtonStyle.green, row=1)
     async def addGuest(self, button:Button, interaction:Interaction):
         print(f'{dt.now()} Guest add button is pressed from {interaction.user.display_name}')
         await interaction.response.defer()
@@ -145,45 +173,140 @@ class PartyView(View):
             print(f'パーティメンバによるアクション')
             await party.joinMember(Guest())
     
-    # @button(label='ゲスト削除')
-    # async def removeGuest(self, button:Button, interaction:Interaction):
-    #     print(f'{dt.now()} Guest remove button from {interaction.user.display_name}')
-    #     await interaction.response.defer()
-    #     party = searchLightParty(interaction.channel.starting_message, ROBIN_GUILD.parties)
-    #     if party == None:
-    #         print(f'非パーティメンバによるアクション')
-    #         msg = await interaction.channel.send(f'{interaction.user.mention}パーティメンバ以外は操作できません')
-    #         await msg.delete(delay=5)
-    #         return
-    #     if interaction.user in map(lambda x:x.user, party.members): # パーティメンバである
-    #         print('パーティメンバによるアクション')
-    #         await party.removeGuest()
+    @button(label='ゲスト削除', style=ButtonStyle.red, row=1)
+    async def removeGuest(self, button:Button, interaction:Interaction):
+        print(f'{dt.now()} Guest remove button from {interaction.user.display_name}')
+        party = searchLightParty(interaction.channel.starting_message, ROBIN_GUILD.parties)
+        if party == None:
+            print(f'非パーティメンバによるアクション')
+            await interaction.response.send_message(f'{interaction.user.mention}パーティメンバ以外は操作できません', ephemeral=True, delete_after=5)
+            return
+        if interaction.user in map(lambda x:x.user, party.members): # パーティメンバである
+            print('パーティメンバによるアクション')
+            await interaction.response.defer()
+            await party.removeGuest()
 
 class FormationTopView(View):
-    def __init__(self, *items, timeout = None, disable_on_timeout = True):
-        super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
+    def __init__(self, *items, duration:float=None, timeout = None, disable_on_timeout = True):
         self.startTime = perf_counter()
-    @button(label='新規パーティ生成')
+        self.duration = duration
+        # durationが指定されていればtimeoutを有効化
+        if self.duration is not None:
+            timeout = self.duration
+            disable_on_timeout = False
+        super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
+
+    async def on_timeout(self):
+        self.disable_all_items()
+        await self.message.edit(view=self)
+
+    async def interaction_check(self, interaction: Interaction) -> bool:
+        if self.timeout is not None and self.duration is not None:
+            self.timeout = self.startTime + self.duration - perf_counter()
+            await self.message.edit(view=self)
+        if ROBIN_GUILD.MEMBER_ROLE not in interaction.user.roles:
+            print(f'{dt.now()} FormationTopView: {interaction.user} have not Member')
+            await interaction.response.send_message(f'参加権がありません', delete_after=5, ephemeral=True)
+            return False
+        return True
+
+    @button(label='新規パーティ生成', style=ButtonStyle.blurple)
     async def newPartyButton(self, button:Button, interaction:Interaction):
         print(f'{dt.now()} New Party button from {interaction.user.display_name}')
-        await interaction.response.defer()
-        if all({interaction.user.id not in map(lambda party:map(lambda member:member.id, party.members), ROBIN_GUILD.parties)}):
-            await createNewParty(interaction.user, free=True)
-        else:
-            alartMessage = await interaction.channel.send(f'{interaction.user.mention}パーティメンバは新規パーティを生成できません')
-            await alartMessage.delete(delay=5)
+        if not await checkParticipationRight(interaction.user):
+            return
+        user = interaction.user
+        # SpeedParty に所属しているなら新規作成を禁止
+        if ROBIN_GUILD.parties and any(p.isMember(user) for p in ROBIN_GUILD.parties if isinstance(p, SpeedParty)):
+            await interaction.response.send_message(f'{user.mention}\n高速パーティメンバは新規パーティを生成できません', delete_after=5, ephemeral=True)
+            return
+
+        # LightParty に所属しているなら既存パーティから抜ける（通常は1つだけ）
+        if ROBIN_GUILD.parties:
+            for party in list(ROBIN_GUILD.parties):
+                if isinstance(party, LightParty) and party.isMember(user):
+                    await party.removeMember(user)
+                    break
+
+        await createNewParty(user, free=True)
 
 async def createNewParty(user:Member, free:bool=False):
     if len(ROBIN_GUILD.parties) == 0: newPartyNum = 1
     else: newPartyNum = max(map(lambda x:x.number, ROBIN_GUILD.parties)) + 1
     roles = {role for role in user.roles if role in ROBIN_GUILD.ROLES.keys()}
-    newParty = RandomParty(newPartyNum, [Participant(user, roles)], free=free)
+    newParty = LightParty(newPartyNum, [Participant(user, roles)], free=free)
     newParty.message = await ROBIN_GUILD.PARTY_CH.send(newParty.getPartyMessage(ROBIN_GUILD.ROLES))
     newParty.thread = await newParty.message.create_thread(name=f'Party:{newParty.number}', auto_archive_duration=60)
-    timeout = (ROBIN_GUILD.timeTable[0] - dt.now() + delta(minutes=60))
-    newParty.threadControlMessage = await newParty.thread.send(view=PartyView(timeout=timeout.seconds))
+    newParty.threadControlMessage = await newParty.thread.send(view=PartyView(duration=((ROBIN_GUILD.timeTable[0] + delta(hours=1)) - dt.now()).total_seconds()))
     await newParty.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
     ROBIN_GUILD.parties.append(newParty)
+
+class RecruitView(View):
+    def __init__(self, duration:float=None, members:set[Member]=set(), *items, timeout = None, disable_on_timeout = True):
+        self.startTime = perf_counter()
+        self.duration = duration
+        # self.msg = msg
+        self.members = members
+        # durationが指定されていればtimeoutを有効化
+        if self.duration is not None:
+            timeout = self.duration
+            disable_on_timeout = False
+        super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
+
+    async def on_timeout(self):
+        self.disable_all_items()
+        await self.message.edit(view=self)
+
+    async def interaction_check(self, interaction: Interaction) -> bool:
+        if self.timeout is not None and self.duration is not None:
+            self.timeout = self.startTime + self.duration - perf_counter()
+            await self.message.edit(view=self)
+        if ROBIN_GUILD.MEMBER_ROLE not in interaction.user.roles:
+            print(f'{dt.now()} RecruitView: {interaction.user} have not Member')
+            await interaction.response.send_message(f'参加権がありません', delete_after=5, ephemeral=True)
+            return False
+        return True
+
+    @button(label='参加 [beta]', style=ButtonStyle.green)
+    async def joinReclute(self, button:Button, interaction:Interaction):
+        now = dt.now()
+        # 未参加であれば追加
+        if interaction.user in self.members:
+            # 既に参加している
+            print(f'{now} Recruit button from {interaction.user.display_name} but already joined')
+            await interaction.response.send_message(f'参加済です',
+                ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 600.)
+        else:
+            print(f'{now} Recruit button from {interaction.user.display_name}')
+            ROBIN_GUILD.RECLUTING_MEMBER.add(interaction.user)
+            await interaction.response.send_message(
+                f'参加を受け付けました\nテスト中ですので、編成に失敗する恐れがあります。\n念のために{ROBIN_GUILD.RECLUTING_EMOJI}リアクションもしておくと確実です。',
+                ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 600.)
+            sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :green_square: {interaction.user.display_name}\n現在の参加者:'
+            await interaction.message.edit(recluitMessageReplace(self.msg, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER)))
+            for member in ROBIN_GUILD.RECLUTING_MEMBER:
+                sendMessage += f' {member.display_name}'
+            await ROBIN_GUILD.RECLUIT_LOG_CH.send(sendMessage)
+
+    @button(label='辞退 [beta]', style=ButtonStyle.red)
+    async def leaveReclute(self, button:Button, interaction:Interaction):
+        # 既に参加しているなら削除
+        now = dt.now()
+        if interaction.user in ROBIN_GUILD.RECLUTING_MEMBER:
+            print(f'{now} Reclute leave button from {interaction.user.display_name}')
+            ROBIN_GUILD.RECLUTING_MEMBER.remove(interaction.user)
+            await interaction.response.send_message('辞退を受け付けました', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 600.)
+            await interaction.message.edit(recluitMessageReplace(self.msg, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER)))
+            await interaction.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, interaction.user)
+            sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :red_square: {interaction.user.display_name}\n現在の参加者:'
+            # 更新メッセージ
+            for member in ROBIN_GUILD.RECLUTING_MEMBER:
+                sendMessage += f' {member.display_name}'
+            await ROBIN_GUILD.RECLUIT_LOG_CH.send(sendMessage)
+
+        else:
+            print(f'{now} Reclute leave button from {interaction.user.display_name} but not joined')
+            await interaction.response.send_message('辞退済です', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 600.)
 
 class RebootView(View):
     def __init__(self, *items, timeout=None, disable_on_timeout=True):
@@ -196,38 +319,17 @@ class RebootView(View):
         except Exception as e:
             printTraceback(e)
             rebootScadule = True
-        buttonAllDisable(self.children)
+        self.disable_all_items()
         print(f'{dt.now()} 再起動スケジュールが設定されました')
         await interaction.response.edit_message(view=self)
         await interaction.respond('再起動スケジュールを設定しました')
     @button(label='すぐに再起動', style=ButtonStyle.red)
     async def justReboot(self, button:Button, interaction:Interaction):
-        button.disabled = True
-        buttonAllDisable(self.children)
+        self.disable_all_items()
         await interaction.response.edit_message(view=self)
         await f_reboot(interaction)
-
-# class RecluteView(View):
-#     def __init__(self, *items, timeout=None, disable_on_timeout=True, disable01=False, disable02=False):
-#         super().__init__(*items, timeout=timeout, disable_on_timeout = disable_on_timeout)
-#         self.disable01 = disable01
-#         self.disable02 = disable02
-#     @button(label='Button01', style=ButtonStyle.green)
-#     async def reclute01(self, button:Button, interaction:Interaction):
-#         await interaction.response.send_message(f'個別表示テスト {button.label} が押されました', ephemeral=True, view=RecluteView(disable01=True, timeout=180, disable_on_timeout=False))
-#         print(f'{dt.now()} {interaction.user} {button.label}')
-#     @button(label='Button01', style=ButtonStyle.red)
-#     async def reclute02(self, button:Button, interaction:Interaction):
-#         await interaction.response.send_message(f'個別表示テスト {button.label} が押されました', ephemeral=True, view=RecluteView(disable02=True, timeout=180, disable_on_timeout=False))
-#         print(f'{dt.now()} {interaction.user} {button.label}')
-
-def buttonAllDisable(children):
-    for child in children:
-        if isinstance(child, Button):
-            child.disabled = True
-
-def isPartyMember(user:Member) -> bool:
-    for party in ROBIN_GUILD.parties:
-        if any(map(lambda x:x.user==user, party.members)):
-            return False
-    return True
+    @button(label='安定版再起動', style=ButtonStyle.red)
+    async def stableReboot(self, button:Button, interaction:Interaction):
+        self.disable_all_items()
+        await interaction.response.edit_message(view=self)
+        await f_stableReboot()

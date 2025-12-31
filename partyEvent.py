@@ -1,69 +1,162 @@
-from __future__ import annotations # 必ず先頭に
+from __future__ import annotations # 再帰に必要 必ず先頭に
 
 from datetime import datetime as dt, timedelta as delta
 from typing import Any
 from discord import Guild, File, Member, Message, TextChannel, Role, Emoji, CategoryChannel, User, Thread
+from discord.ui import View
 from Views import ApproveView, FormationTopView
 from formation import speedFormation, randomFormation
 from random import shuffle
 from main import client, CONFIG, config, GUILD_INFO
+from general import *
+from Views import *
 
 class PartyEvent:
     def __init__(self,
-                 guild:Guild,
+                 guildID:int,
+                 recruitEmoji:Emoji,
                  eventTitle:str,
-                 speedPartyFormation:dict[Any,int],
-                 eventTime:dt,
-                 endTime:delta|dt,
-                 announseTime:delta|dt,
-                 formationTime:delta|dt|None=None,
-                 remindTime:delta|dt|None=None,
-                 threadAutoArciveDuration:int=60,
-                 speedAliance:int=0,
-                 randomAliance:int=0,
-                 randomPartyLimit:int=0,
-                 speedPartySendImage:File|None=None,
-                 endMessage:str=''):
-        self.members:list[Member] = list()
-        self.speedPartyFormation:dict[Any,int] = speedPartyFormation
-        self.eventTime:dt = eventTime
+                 targetChannel:TextChannel,
+                 firstPartyFormation:list[dict[Role,int]],
+                 recruitButton:bool=False,
+                 randomPartyCapacity:int=0,
+                 notificationTime:dt|delta=None,
+                 notificationMessagePath:str='',
+                 remindTime:dt|delta=None,
+                 remindMessagePath:str='',
+                 formationTime:dt=None,
+                 formationMessagePath:str='',
+                 endTime:dt|delta=None,
+                 endMessagePath:str='',
+                 endMessage:str=''
+                 ):
+        
+        self.guildID:int = guildID
+        self.recruitEmoji:Emoji = recruitEmoji
         self.eventTitle:str = eventTitle
-        self.speedAliance:int = speedAliance
-        self.randomAliance:int = randomAliance
-        self.randomPartyLimit:int = randomPartyLimit
-        self.speedPartySendImage:File|None = speedPartySendImage
+        self.targetChannel:TextChannel = targetChannel
+        self.recruitButton:bool = recruitButton
+        self.recruitView:RecruitView = None
+        self.firstPartyFormation:list[dict[Role,int]] = firstPartyFormation
+        self.randomPartyCapacity:int = randomPartyCapacity
         self.endMessage:str = endMessage
-        if isinstance(formationTime, dt): self.formationTime:delta = formationTime - eventTime
-        else: self.formationTime:delta = formationTime
-        if isinstance(endTime, dt): self.endTime:delta = endTime - eventTime
-        else: self.endTime:delta = endTime
-        if isinstance(announseTime, dt): self.announseTime:delta = announseTime - eventTime
-        else: self.announseTime:delta = announseTime
-        if isinstance(remindTime, dt): self.remindTime:delta = remindTime - eventTime
-        else: self.remindTime:delta = remindTime
-        self.guild:GuildInfo = guild
-        self.reclutingMessage:Message = None
+        self.recruitMessage:Message = None
         self.partyChannel:TextChannel = None
-        self.threadAutoArciveDuration:int = threadAutoArciveDuration
-        self.speedParties:list[SpeedParty] = list()
+        self.recruitMember:set[Member] = set()
+        self.parties:list[SpeedParty|LightParty] = list()
         self.randomParties:list[RandomParty] = list()
-        if self.remindTime == None: self.status:int = 1
-        else: self.status:int = 0
-    async def tick(self, nowTime:dt):
+        self.status:int = 0 # 0:アナウンス前 1:リマインド前 2:編成前 3:編成中 4:終了
+        
+        if formationTime is None: self.formationTime:dt = dt.now()
+        else: self.formationTime:dt = formationTime
+        self.formationMessagePath:str = formationMessagePath
+        
+        if isinstance(endTime, dt): self.endTime:dt = endTime
+        elif isinstance(endTime, delta): self.endTime:dt = formationTime + endTime
+        else: self.endTime = None
+        self.endMessagePath:str = endMessagePath
+
+        if isinstance(notificationTime, dt): self.notificationTime:dt = notificationTime
+        elif isinstance(notificationTime, delta): self.notificationTime:dt = self.formationTime + notificationTime
+        else:
+            self.notificationTime = None
+            self.status = 1 # 通知なしでリマインドへ
+        self.notificationMessagePath:str = notificationMessagePath
+
+        if isinstance(remindTime, dt): self.remindTime:dt = remindTime
+        elif isinstance(remindTime, delta): self.remindTime:dt = self.formationTime + remindTime
+        else:
+            self.remindTime = None
+            if self.status == 1: self.status = 2 # リマインドなしで編成へ
+        self.remindMessagePath:str = remindMessagePath
+
+    async def notification(self, client:Client, now:dt):
+        # 編成アナウンス
+        print(f'{dt.now()} Recruting {self.eventTitle}')
+        sendItems = getDirectoryItems(self.notification)
+        for index, sendItem in enumerate(sendItems):
+            # 連続メッセージ
+            if index - len(sendItems) + 1 == 0:
+                # 最後のメッセージ
+                if self.recruitButton:
+                    self.recruitView = RecruitView(
+                        duration=(self.formationTime - now).total_seconds(),
+                        members=self.recruitMember
+                        )
+                    self.recruitMessage = await self.targetChannel.send(
+                        content=self.eventTitle,
+                        files=sendItem.imgs,
+                        view=self.recruitButton
+                        )
+                else:
+                    self.recruitMessage = await self.targetChannel.send(
+                        content=self.eventTitle,
+                        files=sendItem.imgs,
+                        )
+                    await self.recruitMessage.add_reaction(self.recruitEmoji) # 参加リアクション追加
+            else:
+                await self.targetChannel.send(
+                    content=self.eventTitle,
+                    files=sendItem.imgs
+                    )
+
+    async def remind(self, client:Client):
+        # リマインド
+        print(f'{dt.now()} Formation {self.eventTitle}')
+        async with self.targetChannel.typing():
+            eventRoles:set[Role] = {map(lambda party:party.keys(), self.firstPartyFormation)}
+            participants:list[Participant] = list()
+            self.parties = list()
+            # 値取得
+            if self.recruitButton:
+                participants = [map(
+                    lambda participant:Participant(participant, {filter(
+                        lambda roles:roles in eventRoles,
+                        participant.roles
+                        )}
+                    ), self.recruitMember)]
+            else:
+                self.recruitMessage = await self.targetChannel.fetch_message(self.recruitMessage.id)
+                for reaction in self.recruitMessage.reactions:
+                    if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
+                        async for user in reaction.users():
+                            if user == client.user: continue
+                            if ROBIN_GUILD.MEMBER_ROLE not in user.roles: continue
+                            if user in map(lambda x:x.user, self.recruitMember): continue # 既に参加者リストにいるならスキップ
+                            roles = {role for role in user.roles if role in ROBIN_GUILD.ROLES.keys()}
+                            participants.append(Participant(user, roles))
+            
+            formationStartTime = dt.now()
+            # 編成
+            shuffle(participants)
+            print(f'shaffled: {[participant.display_name for participant in participants]}')
+            participantsCopy = participants.copy()
+            # for party in speedFormation(participants):
+            #     ROBIN_GUILD.parties.append(party)
+            for party in lightFormation(participants, len(ROBIN_GUILD.parties)):
+                ROBIN_GUILD.parties.append(party)
+            print(f'formation algorithm time: {dt.now() - formationStartTime}')
+
+            # パーティ通知メッセージ
+            await ROBIN_GUILD.PARTY_CH.send(ROBIN_GUILD.timeTable[0].strftime('## %H時のパーティ編成が完了しました\n参加者は ___**サーバー3**___ へ\n原則、一番上がリーダーです'), \
+                                            view=FormationTopView(duration=((ROBIN_GUILD.timeTable[0] + delta(hours=1)) - dt.now()).total_seconds()))
+            
+            for party in ROBIN_GUILD.parties:
+
+        
+    async def tick(self, client:Client, nowTime:dt) -> int:
         if self.status == 0: # アナウンス時間
-            if self.eventTime + self.announseTime > nowTime:
-                self.status = 1
+            if self.notificationTime <= nowTime:
+                await self.notification(client, nowTime)
+                if self.notificationTime is not None: self.status = 1 # リマインド時間へ
+                else: self.status = 2 # リマインドなしで編成へ
             else: return None
-            #region View書いてない
-            self.partyChannel = await GUILD_INFO[self.guild].PARTY_CATEGORY.create_text_channel(self.eventTime.strftime(f'{self.eventTitle}'))
-            self.reclutingMessage = await self.partyChannel.send(self.eventTime.strftime(f'【{self.eventTitle}】\n参加希望はボタンを押してください'))
-            #endregion
 
         elif self.status == 1: # リマインド時間
             if self.eventTime + self.remindTime > nowTime:
                 self.status = 2
             if self.status != 2: return None
-            self.reclutingMessage = await self.partyChannel.send(self.eventTime.strftime(f'編成まであと%M分\n{self.reclutingMessage.jump_url}'))
+            self.recruitingMessage = await self.partyChannel.send(self.eventTime.strftime(f'編成まであと%M分\n{self.recruitingMessage.jump_url}'))
         
         elif self.status == 2: # 編成時間
             #region 編成
@@ -398,4 +491,249 @@ class RoleEmoji:
 
 partyEvents:set[PartyEvent] = set()
 GUILD_INFO:dict[Guild,GuildInfo] = dict()
+
+
+###########################################################################################################
+async def loop():
+    global ROBIN_GUILD
+    
+    now = dt.now()
+    now = dt(now.year, now.month, now.day, now.hour, now.minute) # 秒数はゼロ
+
+    ######################################################
+    # 募集開始
+    if now == ROBIN_GUILD.timeTable[0] - delta(minutes=30):
+        # パーティ編成クラスをインスタンス化，メッセージ送信
+        print(f'################### {dt.now()} Recluting ###################')
+        ROBIN_GUILD.RECLUTING_MEMBER.clear()
+        sendItems = getDirectoryItems(f'guilds/{ROBIN_GUILD.GUILD.id}/recruitingMessage')
+        for index, sendItem in enumerate(sendItems):
+            if index - len(sendItems) + 1 == 0:
+                # 最後のメッセージ
+                ROBIN_GUILD.recruitingMessage = await ROBIN_GUILD.PARTY_CH.send(
+                    content=recruitMessageReplace(sendItem.text, ROBIN_GUILD.timeTable[0]),
+                    files=sendItem.imgs
+                    )
+            else:
+                await ROBIN_GUILD.PARTY_CH.send(
+                    content=recruitMessageReplace(sendItem.text, ROBIN_GUILD.timeTable[0]),
+                    files=sendItem.imgs)
+        await ROBIN_GUILD.recruitingMessage.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI) # 参加リアクション追加
+        # await ROBIN_GUILD.recruitingMessage.add_reaction(ROBIN_GUILD.LIGHTPARTY_EMOJI) # ライトパーティリアクション追加
+        # await ROBIN_GUILD.recruitingMessage.add_reaction(ROBIN_GUILD.FULLPARTY_EMOJI) # フルパーティリアクション追加
+        await client.change_presence(activity=discord.CustomActivity(name=ROBIN_GUILD.timeTable[0].strftime("Formation:%H時")))
+        
+        # try: # 250611 個別表示テスト
+        #     await ROBIN_GUILD.DEV_CH.send('個別表示テスト\n表示テストのみで編成等に影響しません', view=RecluteView(timeout=1800, disable_on_timeout=False))
+        # except Exception as e:
+        #     printTraceback(e)
+    
+    elif now == ROBIN_GUILD.timeTable[0] - delta(minutes=15):
+        await ROBIN_GUILD.PARTY_CH.send(f'パーティ編成まで残り5分 {ROBIN_GUILD.recruitingMessage.jump_url}')
+
+    ######################################################
+    # パーティ編成をアナウンス
+    elif now == ROBIN_GUILD.timeTable[0] - delta(minutes=10):
+        async with ROBIN_GUILD.PARTY_CH.typing():
+
+            print(f'#================= {dt.now()} Formation =================#')
+
+            ROBIN_GUILD.parties = list()
+            # 値取得
+            await ROBIN_GUILD.GUILD.chunk()
+            ROBIN_GUILD.recruitingMessage = await ROBIN_GUILD.PARTY_CH.fetch_message(ROBIN_GUILD.recruitingMessage.id)
+            try:
+                participants:list[Participant] = list(
+                    map(
+                        lambda user:Participant(user, {role for role in user.roles if role in ROBIN_GUILD.ROLES.keys()}),
+                        ROBIN_GUILD.RECLUTING_MEMBER
+                        )
+                    )
+            except Exception as e:
+                printTraceback(e)
+                participants = []
+            for reaction in ROBIN_GUILD.recruitingMessage.reactions:
+                if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
+                    async for user in reaction.users():
+                        if user == client.user: continue
+                        if ROBIN_GUILD.MEMBER_ROLE not in user.roles: continue
+                        if user in map(lambda x:x.user, participants): continue # 既に参加者リストにいるならスキップ
+                        roles = {role for role in user.roles if role in ROBIN_GUILD.ROLES.keys()}
+                        participant = Participant(user, roles)
+                        participants.append(participant)
+            participantNum = len(participants)
+            
+            formationStartTime = dt.now()
+            # 編成
+            shuffle(participants)
+            print(f'shaffled: {[participant.display_name for participant in participants]}')
+            participantsCopy = participants.copy()
+            # for party in speedFormation(participants):
+            #     ROBIN_GUILD.parties.append(party)
+            for party in lightFormation(participants, len(ROBIN_GUILD.parties)):
+                ROBIN_GUILD.parties.append(party)
+            print(f'formation algorithm time: {dt.now() - formationStartTime}')
+
+            # パーティ通知メッセージ
+            await ROBIN_GUILD.PARTY_CH.send(ROBIN_GUILD.timeTable[0].strftime('## %H時のパーティ編成が完了しました\n参加者は ___**サーバー3**___ へ\n原則、一番上がリーダーです'), \
+                                            view=FormationTopView(duration=((ROBIN_GUILD.timeTable[0] + delta(hours=1)) - dt.now()).total_seconds()))
+            
+            for party in ROBIN_GUILD.parties:
+                party.message = await ROBIN_GUILD.PARTY_CH.send(party.getPartyMessage(ROBIN_GUILD.RAID_ROLES))
+            
+            print(f'{dt.now()} Add Log')
+            with open(f'reactionLog/{ROBIN_GUILD.GUILD.name}.csv', 'a', encoding='utf8') as f:
+                for participant in participants:
+                    f.write(f"{ROBIN_GUILD.timeTable[0].strftime('%y-%m-%d-%H')},{participant.id}\n")
+
+            print('participants')
+            print([participant.display_name for participant in participants])
+            
+            await ROBIN_GUILD.PARTY_LOG.send(f'{ROBIN_GUILD.timeTable[0].strftime("%y/%m/%d %H")} 初期編成参加数 {participantNum}')
+
+        # typingここまで
+
+        print(f'{dt.now()} Formation END')
+
+        print(f'{dt.now()} Create Threads')
+
+        if any(map(lambda x:isinstance(x, SpeedParty), ROBIN_GUILD.parties)):
+            await ROBIN_GUILD.PARTY_CH.send(file=discord.File('images/speedParty.png'))
+        for party in ROBIN_GUILD.parties:
+            if isinstance(party, SpeedParty):
+                party.thread = await party.message.create_thread(name=f'SpeedParty:{party.number}', auto_archive_duration=60)
+            elif isinstance(party, LightParty):
+                party.thread = await party.message.create_thread(name=f'Party:{party.number}', auto_archive_duration=60)
+                if party.membersNum() < 4: # 4人以下の時はリアクション
+                    await party.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
+                party.threadControlMessage = await party.thread.send(
+                    view=PartyView(duration=((ROBIN_GUILD.timeTable[0] + delta(hours=1)) - dt.now()).total_seconds()))
+                if party.aliance:
+                    try:
+                        await party.sendAlianceInfo()
+                    except Exception as e:
+                        printTraceback(e)
+        print(f'{dt.now()} Create Threads END')
+        try: # パーティ同盟チェック
+            for party in ROBIN_GUILD.parties:
+                if isinstance(party, LightParty):
+                    await party.alianceCheck(ROBIN_GUILD.parties)
+                    if party.aliance:
+                        await party.message.edit(party.getPartyMessage(ROBIN_GUILD.ROLES))
+        except Exception as e:
+            printTraceback(e)
+
+        try:
+            # テスト編成
+            participants = []
+            priorities:list[Participant] = [p for p in participantsCopy
+                                            if {ROBIN_GUILD.PRIORITY_ROLE, ROBIN_GUILD.STATIC_PRIORITY_ROLE} & p.roles]
+            normals:list[Participant] = list(set(participantsCopy) - set(priorities))
+            if len(normals) == 0:
+                bias = 0
+            else:
+                bias = len(priorities) / len(normals) * 2
+            while True:
+                participant = pickParticipant(priorities, normals, bias)
+                if participant is None: break
+                participants.append(participant)
+            parties:list[SpeedParty|LightParty] = []
+            for party in speedFormation(participants):
+                parties.append(party)
+            for party in lightFormation(participants, len(parties)):
+                parties.append(party)
+            
+            sendSpeedpartyDisplayName = ''
+            sendLightpartyDisplayName = ''
+            for party in parties:
+                if isinstance(party, LightParty):
+                    for member in party.members:
+                        sendLightpartyDisplayName += f'{member.display_name}\n'
+                elif isinstance(party, SpeedParty):
+                    for members in party.members.values():
+                        for member in members:
+                            sendSpeedpartyDisplayName += f'{member.display_name}\n'
+
+            await ROBIN_GUILD.RECLUIT_LOG_CH.send('## テスト編成表示\n### 高速パーティ\n' + sendSpeedpartyDisplayName + '\n### ライトパーティ\n' + sendLightpartyDisplayName)
+
+            # 優先権操作
+            if any(map(lambda party:isinstance(party, SpeedParty) , ROBIN_GUILD.parties)):
+                # 高速パーティがあるなら優先権付与
+                for party in ROBIN_GUILD.parties: # パーティループ
+                    if isinstance(party, SpeedParty): # 高速パーティ
+                        for participants in party.members.values(): # ロールループ
+                            for participant in participants: # ユーザーループ
+                                if ROBIN_GUILD.STATIC_PRIORITY_ROLE not in participant.user.roles:
+                                    # 静的優先権を持っているなら動的優先権は付与しない
+                                    participant.user.add_roles(ROBIN_GUILD.PRIORITY_ROLE) # 動的優先権付与
+                    elif isinstance(party, LightParty): # 通常パーティ
+                        for participant in party.members: # ユーザーループ
+                            if ROBIN_GUILD.STATIC_PRIORITY_ROLE not in participant.user.roles:
+                                # 静的優先権を持っているなら動的優先権は付与しない
+                                participant.user.add_roles(ROBIN_GUILD.PRIORITY_ROLE) # 動的優先権付与
+        except Exception as e:
+            try: await ROBIN_GUILD.RECLUIT_LOG_CH.send('優先権操作に失敗')
+            except Exception: pass
+            printTraceback(e)
+
+        ROBIN_GUILD.RECLUTING_MEMBER.clear()
+
+        print('#==================================================================#')
+
+        # ROBIN_GUILD.recruitingMessage = None
+
+    ######################################################
+    # 0分前 タイムテーブル更新
+    elif now == ROBIN_GUILD.timeTable[0]:
+        await client.change_presence(activity=discord.CustomActivity(name=ROBIN_GUILD.timeTable[0].strftime("Hunting:%H時")))
+    ######################################################
+    # 1時間後 周回終わり
+    elif now == ROBIN_GUILD.timeTable[0] + delta(minutes=60):
+        global rebootScadule
+
+        try:
+            memberSum = 0
+            for party in ROBIN_GUILD.parties:
+                memberSum += party.membersNum()
+            await ROBIN_GUILD.PARTY_LOG.send(ROBIN_GUILD.timeTable[0].strftime(f'%y/%m/%d %H 最終参加数 {memberSum}'))
+        except Exception as e:
+            printTraceback(e)
+        
+        del ROBIN_GUILD.timeTable[0] # 先頭を削除
+        if len(ROBIN_GUILD.timeTable) < 3:
+            ROBIN_GUILD.timeTable = await getTimetable()
+            for t in ROBIN_GUILD.timeTable:
+                print(t)
+        msg = ROBIN_GUILD.timeTable[0].strftime('## 次回の全兵団は %H時 です\n%H時 > ')
+        msg += ROBIN_GUILD.timeTable[1].strftime('%H時 > ')
+        msg += ROBIN_GUILD.timeTable[2].strftime('%H時 > [...](<https://hiroba.dqx.jp/sc/tokoyami/>)')
+        await ROBIN_GUILD.PARTY_CH.send(msg)
+
+        if rebootScadule:
+            try: await rebootScadule.send('再起動します')
+            except Exception as e:
+                printTraceback(e)
+            await f_reboot()
+        
+        await client.change_presence(activity=discord.CustomActivity(name=ROBIN_GUILD.timeTable[0].strftime("Next:%H時")))
+        ROBIN_GUILD.parties = None
+        ROBIN_GUILD.recruitingMessage = None
+        
+    # if (now + delta(minutes=1)).month == now.month + 1: # 1分後が来月 -> 明日が1日の23:59
+    #     members = joinLeaveMembers(ROBIN_GUILD.GUILD, 3, ROBIN_GUILD.GUILD.get_role(1246989946263306302))
+    #     msg = '3か月不参加メンバ:'
+    #     if members:
+    #         for member in members:
+    #             msg += f' {member.mention}'
+    #     else:
+    #         msg += '（なし）'
+    #     await ROBIN_GUILD.DEV_CH
+
+    ######################################################
+    #
+    # elif now + delta(minutes=60) > ROBIN_GUILD.timeTable[0]:
+    #     while True:
+    #         if len(ROBIN_GUILD.timeTable) == 0: break
+    #         del ROBIN_GUILD.timeTable[0]
+    #         if now + delta(minutes=60) <= ROBIN_GUILD.timeTable[0]: break
 
