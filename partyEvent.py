@@ -1,6 +1,6 @@
 from __future__ import annotations # 再帰に必要 必ず先頭に
 
-from datetime import datetime as dt, timedelta as delta
+from datetime import datetime as dt, timedelta as delta, time as tm
 from typing import Any
 from discord import Guild, File, Member, Message, TextChannel, Role, Emoji, CategoryChannel, User, Thread
 from discord.ui import View
@@ -18,6 +18,7 @@ class PartyEvent:
                  eventTitle:str,
                  targetChannel:TextChannel,
                  firstPartyFormation:list[dict[Role,int]],
+                 requirementRole:Role=None,
                  recruitButton:bool=False,
                  randomPartyCapacity:int=0,
                  notificationTime:dt|delta=None,
@@ -38,6 +39,7 @@ class PartyEvent:
         self.recruitButton:bool = recruitButton
         self.recruitView:RecruitView = None
         self.firstPartyFormation:list[dict[Role,int]] = firstPartyFormation
+        self.requirementRole:Role = requirementRole
         self.randomPartyCapacity:int = randomPartyCapacity
         self.endMessage:str = endMessage
         self.recruitMessage:Message = None
@@ -100,8 +102,13 @@ class PartyEvent:
                     files=sendItem.imgs
                     )
 
-    async def remind(self, client:Client):
+    async def remind(self):
         # リマインド
+        minutes = round((self.formationTime - self.remindTime).total_seconds() / 60)
+        await self.targetChannel.send(
+            (f'{self.eventTitle} 編成まで残り {minutes}分 {self.recruitMessage.jump_url} @here'))
+
+    async def formation(self):
         print(f'{dt.now()} Formation {self.eventTitle}')
         async with self.targetChannel.typing():
             eventRoles:set[Role] = {map(lambda party:party.keys(), self.firstPartyFormation)}
@@ -118,12 +125,12 @@ class PartyEvent:
             else:
                 self.recruitMessage = await self.targetChannel.fetch_message(self.recruitMessage.id)
                 for reaction in self.recruitMessage.reactions:
-                    if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
+                    if reaction.emoji == self.recruitEmoji:
                         async for user in reaction.users():
-                            if user == client.user: continue
-                            if ROBIN_GUILD.MEMBER_ROLE not in user.roles: continue
-                            if user in map(lambda x:x.user, self.recruitMember): continue # 既に参加者リストにいるならスキップ
-                            roles = {role for role in user.roles if role in ROBIN_GUILD.ROLES.keys()}
+                            if user == client.user: continue # 自身をパス
+                            if self.requirementRole in user.roles: continue # 参加権
+                            if user in map(lambda x:x, self.recruitMember): continue # 既に参加者リストにいるならスキップ
+                            roles = {role for role in user.roles if role in eventRoles}
                             participants.append(Participant(user, roles))
             
             formationStartTime = dt.now()
@@ -145,20 +152,20 @@ class PartyEvent:
 
         
     async def tick(self, client:Client, nowTime:dt) -> int:
-        if self.status == 0: # アナウンス時間
+        if self.status == 0: # アナウンス
             if self.notificationTime <= nowTime:
                 await self.notification(client, nowTime)
                 if self.notificationTime is not None: self.status = 1 # リマインド時間へ
                 else: self.status = 2 # リマインドなしで編成へ
             else: return None
 
-        elif self.status == 1: # リマインド時間
+        elif self.status == 1: # リマインド
             if self.eventTime + self.remindTime > nowTime:
                 self.status = 2
             if self.status != 2: return None
-            self.recruitingMessage = await self.partyChannel.send(self.eventTime.strftime(f'編成まであと%M分\n{self.recruitingMessage.jump_url}'))
-        
-        elif self.status == 2: # 編成時間
+            self.remind()
+                    
+        elif self.status == 2: # 編成
             #region 編成
             if self.eventTime + self.formationTime > nowTime:
                 self.status = 3
