@@ -297,7 +297,6 @@ class Guild:
         self.COMMAND_CH:discord.TextChannel = None # コマンドチャンネル
         self.COMMAND_MSG:discord.Message = None # コマンドメッセージ
         self.PARTY_LOG:discord.TextChannel = None # パーティログチャンネル
-        self.UNAPPLIDE_CHANNEL:discord.TextChannel = None # 参加申請チャンネル
         self.RECLUIT_LOG_CH:discord.TextChannel = None # 募集ログチャンネル
 
         self.reclutingMessage:discord.Message = None # 募集メッセージ
@@ -310,7 +309,6 @@ class Guild:
         self.FULLPARTY_EMOJI:discord.Emoji = None
         self.LIGHTPARTY_EMOJI:discord.Emoji = None
         self.MEMBER_ROLE:discord.Role = None
-        self.UNAPPLIDE_MEMBER_ROLE:discord.Role = None # 未申請メンバ
         self.PRIORITY_ROLE:discord.Role = None # 高速動的参加優先権ロール
         self.STATIC_PRIORITY_ROLE:discord.Role = None # 静的参加優先権ロール
         self.MASTER_ROLE:discord.Role = None # マスターロール
@@ -487,38 +485,6 @@ async def on_message_delete(message):
     if message == ROBIN_GUILD.COMMAND_MSG:
         ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH)
 
-#endregion
-
-##############################################################################################
-##############################################################################################
-#region サーバー加入
-@client.event
-async def on_member_join(member:discord.Member):
-    if member.bot: return
-    await member.add_roles(ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE)
-    thread = await ROBIN_GUILD.UNAPPLIDE_CHANNEL.create_thread(name=f'{member.display_name}', type=discord.ChannelType.private_thread, invitable=False)
-    await thread.send(f'{member.mention} {ROBIN_GUILD.MASTER_ROLE.mention}')
-    await sendDirectory(f'guilds/{ROBIN_GUILD.GUILD.id}/memberJoin', thread)
-    
-#endregion
-
-##############################################################################################
-##############################################################################################
-#region メンバー情報更新
-@client.event
-async def on_member_update(before:discord.Member, after:discord.Member):
-    global ROBIN_GUILD
-    if after.bot: return # ボットを無視
-    diffRole = set(after.roles) - set(before.roles)
-    if diffRole:
-        # ロールが増えた
-        if ROBIN_GUILD.MEMBER_ROLE in diffRole:
-            # メンバロール
-            targetChannels = set(filter(lambda ch:after.id in map(lambda m:m.id, ch.members), ROBIN_GUILD.UNAPPLIDE_CHANNEL.threads))
-            if len(targetChannels) == 1:
-                await sendDirectory(f'guilds/{ROBIN_GUILD.GUILD.id}/addMemberRole', targetChannels.pop())
-            elif len(targetChannels) > 1:
-                print('[Error] on_member_update > メンバロール付与: 2つ以上のスレッドに一致')
 #endregion
 
 ##############################################################################################
@@ -1476,7 +1442,6 @@ async def f_fetch():
         ROBIN_GUILD.PARTY_LOG     = client.get_channel(guildInfo['channels']['party-log'])
         ROBIN_GUILD.DEV_CH        = client.get_channel(guildInfo['channels']['develop'])
         ROBIN_GUILD.COMMAND_CH    = client.get_channel(guildInfo['channels']['command'])
-        ROBIN_GUILD.UNAPPLIDE_CHANNEL = client.get_channel(guildInfo['channels']['unapplide'])
         ROBIN_GUILD.RECLUIT_LOG_CH = client.get_channel(guildInfo['channels']['recluit-log'])
 
         ROBIN_GUILD.reclutingMessageItems = getDirectoryItems(f'guilds/{ROBIN_GUILD.GUILD.id}/recluitingMessage')
@@ -1493,7 +1458,6 @@ async def f_fetch():
                     for roleName, roleInfo in guildInfo['raidRoles'].items()
             }
         ROBIN_GUILD.MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['member'])
-        ROBIN_GUILD.UNAPPLIDE_MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['unapplide'])
         ROBIN_GUILD.PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['priority'])
         ROBIN_GUILD.STATIC_PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['staticPriority'])
         ROBIN_GUILD.MASTER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['master'])
