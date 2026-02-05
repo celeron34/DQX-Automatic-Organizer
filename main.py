@@ -37,9 +37,10 @@ rebootScadule:bool|discord.TextChannel = False
 #region Classese
 
 class RoleInfo:
-    def __init__(self, emoji:discord.Emoji, name:str):
+    def __init__(self, emoji:discord.Emoji, name:str, count:int):
         self.emoji:discord.Emoji = emoji
         self.name:str = name
+        self.count:str = count
         
 class PartyMember: # パーティメンバ親クラス
     def __init__(self, user:discord.Member|None, roles:set[discord.Role]):
@@ -1454,7 +1455,7 @@ async def f_fetch():
         # ロールゲット
         ROBIN_GUILD.ROLES = {
                 ROBIN_GUILD.GUILD.get_role(roleInfo['role']) : \
-                RoleInfo(client.get_emoji(roleInfo['emoji']), roleName) \
+                RoleInfo(client.get_emoji(roleInfo['emoji']), roleName, roleInfo['count']) \
                     for roleName, roleInfo in guildInfo['raidRoles'].items()
             }
         ROBIN_GUILD.MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['member'])
