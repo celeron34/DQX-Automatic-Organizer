@@ -595,8 +595,8 @@ async def loop():
 
         print(f'{dt.now()} Create Threads')
 
-        if any(map(lambda x:isinstance(x, SpeedParty), ROBIN_GUILD.parties)):
-            await ROBIN_GUILD.PARTY_CH.send(file=discord.File('images/speedParty.png'))
+        #if any(map(lambda x:isinstance(x, SpeedParty), ROBIN_GUILD.parties)):
+        #    await ROBIN_GUILD.PARTY_CH.send(file=discord.File('images/speedParty.png'))
         for party in ROBIN_GUILD.parties:
             if isinstance(party, SpeedParty):
                 party.thread = await party.message.create_thread(name=f'FullParty:{party.number}', auto_archive_duration=60)
