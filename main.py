@@ -315,7 +315,7 @@ class Guild:
         self.MASTER_ROLE:discord.Role = None # マスターロール
         
         self.ROLES:dict[discord.Role, RoleInfo] = None
-        self.RECLUTING_MEMBER:set[discord.Member] = set() # 募集参加メンバ
+        self.RECLUTING_MEMBER:list[discord.Member] = list() # 募集参加メンバ
         # self.ROLES:dict[discord.Role, ]
 
         # self.formation:Formation = None # パーティ編成クラス
@@ -402,7 +402,7 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
                 await reaction.message.remove_reaction(reaction.emoji, user)
                 return
             if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
-                ROBIN_GUILD.RECLUTING_MEMBER.add(user)
+                ROBIN_GUILD.RECLUTING_MEMBER.append(user)
                 await reaction.message.edit(recluitMessageReplace(ROBIN_GUILD.reclutingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER)))
                 sendMessage = dt.now().strftime('[%y-%m-%d %H:%M]') + f' :green_square: {user.display_name}\n現在の参加者:'
                 for member in ROBIN_GUILD.RECLUTING_MEMBER:
@@ -563,8 +563,9 @@ async def loop():
             
             formationStartTime = dt.now()
             # 編成
-            shuffle(participants)
-            print(f'shaffled: {[participant.display_name for participant in participants]}')
+            print(f'participants: {[participant.display_name for participant in participants]}')
+            # shuffle(participants)
+            # print(f'shaffled: {[participant.display_name for participant in participants]}')
             participantsCopy = participants.copy()
             for party in speedFormation(participants):
                 ROBIN_GUILD.parties.append(party)
@@ -1247,7 +1248,7 @@ class RecruitView(discord.ui.View):
                 ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 600.)
         else:
             print(f'{now} Recruit button from {interaction.user.display_name}')
-            ROBIN_GUILD.RECLUTING_MEMBER.add(interaction.user)
+            ROBIN_GUILD.RECLUTING_MEMBER.append(interaction.user)
             await interaction.response.send_message(
                 f'参加を受け付けました\nテスト中ですので、編成に失敗する恐れがあります。\n念のために{ROBIN_GUILD.RECLUTING_EMOJI}リアクションもしておくと確実です。',
                 ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 600.)
