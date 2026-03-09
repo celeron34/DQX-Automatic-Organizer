@@ -404,9 +404,7 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
             if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
                 ROBIN_GUILD.RECLUTING_MEMBER.append(user)
                 await reaction.message.edit(recluitMessageReplace(ROBIN_GUILD.reclutingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER)))
-                sendMessage = dt.now().strftime('[%y-%m-%d %H:%M]') + f' :green_square: {user.display_name}\n現在の参加者:'
-                for member in ROBIN_GUILD.RECLUTING_MEMBER:
-                    sendMessage += f' {member.display_name}'
+                sendMessage = dt.now().strftime('[%y-%m-%d %H:%M:%S.%f]') + f' :green_square: {user.display_name}'
                 await ROBIN_GUILD.RECLUIT_LOG_CH.send(sendMessage)
 
 ##############################################################################################
@@ -462,9 +460,7 @@ async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|disc
             if user in ROBIN_GUILD.RECLUTING_MEMBER:
                 ROBIN_GUILD.RECLUTING_MEMBER.remove(user)
                 await reaction.message.edit(recluitMessageReplace(ROBIN_GUILD.reclutingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER)))
-            sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :red_square: {user.display_name}\n現在の参加者:'
-            for member in ROBIN_GUILD.RECLUTING_MEMBER:
-                sendMessage += f' {member.display_name}'
+            sendMessage = now.strftime('[%y-%m-%d %H:%M:%S.%f]') + f' :red_square: {user.display_name}'
             await ROBIN_GUILD.RECLUIT_LOG_CH.send(sendMessage)
 
 #endregion
