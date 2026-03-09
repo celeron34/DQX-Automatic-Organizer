@@ -406,7 +406,7 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
                 await reaction.message.edit(recluitMessageReplace(ROBIN_GUILD.reclutingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER)))
                 sendMessage = dt.now().strftime('[%y-%m-%d %H:%M:%S.%f]') + f' :green_square: {user.display_name} '
                 for role in filter(lambda r:r in ROBIN_GUILD.ROLES.keys(), user.roles):
-                    sendMessage += ROBIN_GUILD.ROLES[role].emoji
+                    sendMessage += str(ROBIN_GUILD.ROLES[role].emoji)
                 await ROBIN_GUILD.RECLUIT_LOG_CH.send(sendMessage)
 
 ##############################################################################################
@@ -464,7 +464,7 @@ async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|disc
                 await reaction.message.edit(recluitMessageReplace(ROBIN_GUILD.reclutingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER)))
             sendMessage = now.strftime('[%y-%m-%d %H:%M:%S.%f]') + f' :red_square: {user.display_name} '
             for role in filter(lambda r:r in ROBIN_GUILD.ROLES.keys(), user.roles):
-                sendMessage += ROBIN_GUILD.ROLES[role].emoji
+                sendMessage += str(ROBIN_GUILD.ROLES[role].emoji)
             await ROBIN_GUILD.RECLUIT_LOG_CH.send(sendMessage)
 
 #endregion
