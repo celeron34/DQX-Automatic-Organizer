@@ -896,7 +896,9 @@ def speedFormation(participants:list[Participant]) -> list[SpeedParty]:
     return parties
 
 def addHispeedParty(parties:list[SpeedParty], participant:Participant, roles:set[discord.Role]=set()) -> bool:
-    for role in shuffle([role for role in participant.roles if role not in roles]):
+    searchRoles = [role for role in participant.roles if role not in roles]
+    shuffle(searchRoles)
+    for role in searchRoles:
         if None in parties[-1].members[role]:
             # 空きがあったから入れて True返す
             if parties[-1].addMember(participant, role): return True
