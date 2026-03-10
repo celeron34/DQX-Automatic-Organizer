@@ -241,9 +241,9 @@ class SpeedParty(Party):
 
     def getPartyMessage(self, guildRolesEmoji:dict[discord.Role,RoleInfo]) -> str:
         if ROBIN_GUILD.FULLPARTY_EMOJI:
-            msg = f'\| {ROBIN_GUILD.FULLPARTY_EMOJI} 冥翼パーティ:{self.number} {ROBIN_GUILD.FULLPARTY_EMOJI}'
+            msg = f'\| {ROBIN_GUILD.FULLPARTY_EMOJI} フルパーティ:{self.number} {ROBIN_GUILD.FULLPARTY_EMOJI}'
         else:
-            msg = f'\| 冥翼パーティ:{self.number}'
+            msg = f'\| フルパーティ:{self.number}'
         blockCount = 0
         for partyRole, members in self.members.items():
             if blockCount == 4: msg += '\n-# = = = = = = = = = = = = = ='
@@ -310,7 +310,7 @@ class Guild:
         self.FULLPARTY_EMOJI:discord.Emoji = None
         self.LIGHTPARTY_EMOJI:discord.Emoji = None
         self.MEMBER_ROLE:discord.Role = None
-        self.PRIORITY_ROLE:discord.Role = None # 冥翼動的参加優先権ロール
+        self.PRIORITY_ROLE:discord.Role = None # フルパーティ動的参加優先権ロール
         self.STATIC_PRIORITY_ROLE:discord.Role = None # 静的参加優先権ロール
         self.MASTER_ROLE:discord.Role = None # マスターロール
         
@@ -653,13 +653,13 @@ async def loop():
                         for member in members:
                             sendSpeedpartyDisplayName += f'{member.display_name}\n'
 
-            await ROBIN_GUILD.RECLUIT_LOG_CH.send('## テスト編成表示\n### 冥翼パーティ\n' + sendSpeedpartyDisplayName + '\n### ライトパーティ\n' + sendLightpartyDisplayName)
+            await ROBIN_GUILD.RECLUIT_LOG_CH.send('## テスト編成表示\n### フルパーティ\n' + sendSpeedpartyDisplayName + '\n### ライトパーティ\n' + sendLightpartyDisplayName)
 
             # 優先権操作
             if any(map(lambda party:isinstance(party, SpeedParty) , ROBIN_GUILD.parties)):
-                # 冥翼パーティがあるなら優先権付与
+                # フルパーティがあるなら優先権付与
                 for party in ROBIN_GUILD.parties: # パーティループ
-                    if isinstance(party, SpeedParty): # 冥翼パーティ
+                    if isinstance(party, SpeedParty): # フルパーティ
                         for participants in party.members.values(): # ロールループ
                             for participant in participants: # ユーザーループ
                                 if ROBIN_GUILD.STATIC_PRIORITY_ROLE not in participant.user.roles:
@@ -1007,7 +1007,7 @@ class RoleManageView(discord.ui.View):
         for role in self.roleEmoji.keys():
             if role in interaction.user.roles:
                 await interaction.user.remove_roles(role)
-        await interaction.response.send_message(f'{interaction.user.mention}全ての冥翼可能ロールを削除', ephemeral=True, delete_after=5)
+        await interaction.response.send_message(f'{interaction.user.mention}全ての可能ロールを削除', ephemeral=True, delete_after=5)
 
 class ApproveView(discord.ui.View):
     def __init__(self, *items, duration:float=None, timeout = None, disable_on_timeout = True):
@@ -1190,7 +1190,7 @@ class FormationTopView(discord.ui.View):
         user = interaction.user
         # SpeedParty に所属しているなら新規作成を禁止
         if ROBIN_GUILD.parties and any(p.isMember(user) for p in ROBIN_GUILD.parties if isinstance(p, SpeedParty)):
-            await interaction.response.send_message(f'{user.mention}\n冥翼パーティメンバは新規パーティを生成できません', delete_after=5, ephemeral=True)
+            await interaction.response.send_message(f'{user.mention}\nフルパーティメンバは新規パーティを生成できません', delete_after=5, ephemeral=True)
             return
 
         # LightParty に所属しているなら既存パーティから抜ける（通常は1つだけ）
