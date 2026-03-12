@@ -653,7 +653,7 @@ async def loop():
                         for member in members:
                             sendSpeedpartyDisplayName += f'{member.display_name}\n'
 
-            await ROBIN_GUILD.RECLUIT_LOG_CH.send('## テスト編成表示\n### フルパーティ\n' + sendSpeedpartyDisplayName + '\n### ライトパーティ\n' + sendLightpartyDisplayName)
+            print('## テスト編成表示\n### フルパーティ\n' + sendSpeedpartyDisplayName + '\n### ライトパーティ\n' + sendLightpartyDisplayName)
 
             # 優先権操作
             if any(map(lambda party:isinstance(party, SpeedParty) , ROBIN_GUILD.parties)):
@@ -671,7 +671,7 @@ async def loop():
                                 # 静的優先権を持っているなら動的優先権は付与しない
                                 participant.user.add_roles(ROBIN_GUILD.PRIORITY_ROLE) # 動的優先権付与
         except Exception as e:
-            try: await ROBIN_GUILD.RECLUIT_LOG_CH.send('優先権操作に失敗')
+            try: print('優先権操作に失敗')
             except Exception: pass
             printTraceback(e)
 
