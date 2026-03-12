@@ -1466,15 +1466,21 @@ async def f_fetch():
         ROBIN_GUILD.STATIC_PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['staticPriority'])
         ROBIN_GUILD.MASTER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['master'])
 
-        raidRoles = {roleName:
-                     {'role':ROBIN_GUILD.GUILD.get_role(roleInfo['role']), 'emoji':client.get_emoji(roleInfo['emoji'])}
-                     for roleName, roleInfo in guildInfo['raidRoles'].items()
-                    }
-        # ローリングチャンネルイニシャライズ
-        await ROBIN_GUILD.COMMAND_CH.purge()
-        ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH, raidRoles)
+        await roleSetting(guildInfo)
 
         await ROBIN_GUILD.GUILD.chunk()
+
+async def roleSetting(guildInfo):
+    global ROBIN_GUILD
+    # ロール設定チャンネル初期化
+    settingRoles = {
+        settingInfo['name']:
+        {'role':ROBIN_GUILD.GUILD.get_role(settingInfo['role']), 'emoji':client.get_emoji(settingInfo['emoji'])}
+        for settingInfo in guildInfo['settingRoles']
+    }
+    await ROBIN_GUILD.COMMAND_CH.purge()
+    ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH, settingRoles)
+
 
 # @client.slash_command(name='f-get-leave-month', description='任意の月間不参加者抽出')
 # async def f_get_leave_month(ctx:discord.ApplicationContext, month:int):
