@@ -313,6 +313,7 @@ class Guild:
         self.PRIORITY_ROLE:discord.Role = None # フルパーティ動的参加優先権ロール
         self.STATIC_PRIORITY_ROLE:discord.Role = None # 静的参加優先権ロール
         self.MASTER_ROLE:discord.Role = None # マスターロール
+        self.LITE_PARTY_ROLE:discord.Role = None # ライトパーティロール
         
         self.ROLES:dict[discord.Role, RoleInfo] = None
         self.RECLUTING_MEMBER:list[discord.Member] = list() # 募集参加メンバ
@@ -405,6 +406,7 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
                 ROBIN_GUILD.RECLUTING_MEMBER.append(user)
                 await reaction.message.edit(recluitMessageReplace(ROBIN_GUILD.reclutingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER)))
                 sendMessage = dt.now().strftime('[%y-%m-%d %H:%M:%S.%f]') + f' :green_square: {user.display_name} '
+                sendMessage += str(ROBIN_GUILD.LIGHTPARTY_EMOJI) if ROBIN_GUILD.LITE_PARTY_ROLE in user.roles else ''
                 for role in filter(lambda r:r in ROBIN_GUILD.ROLES.keys(), user.roles):
                     sendMessage += str(ROBIN_GUILD.ROLES[role].emoji)
                 await ROBIN_GUILD.RECLUIT_LOG_CH.send(sendMessage)
@@ -569,6 +571,7 @@ async def loop():
             participantsCopy = participants.copy()
             for party in speedFormation(participants):
                 ROBIN_GUILD.parties.append(party)
+            participants = list(filter(lambda p:ROBIN_GUILD.LITE_PARTY_ROLE in p.user.roles, participants))
             for party in lightFormation(participants, len(ROBIN_GUILD.parties)):
                 ROBIN_GUILD.parties.append(party)
             print(f'formation algorithm time: {dt.now() - formationStartTime}')
@@ -1465,6 +1468,7 @@ async def f_fetch():
         ROBIN_GUILD.PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['priority'])
         ROBIN_GUILD.STATIC_PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['staticPriority'])
         ROBIN_GUILD.MASTER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['master'])
+        ROBIN_GUILD.LITE_PARTY_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['liteParty'])
 
         await roleSetting(guildInfo)
 
