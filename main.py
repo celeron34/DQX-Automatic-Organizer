@@ -565,13 +565,14 @@ async def loop():
             
             formationStartTime = dt.now()
             # 編成
-            print(f'participants: {[participant.display_name for participant in participants]}')
+            print(f'FullParty participants: {[participant.display_name for participant in participants]}')
             # shuffle(participants)
             # print(f'shaffled: {[participant.display_name for participant in participants]}')
             participantsCopy = participants.copy()
             for party in speedFormation(participants):
                 ROBIN_GUILD.parties.append(party)
             participants = list(filter(lambda p:ROBIN_GUILD.LITE_PARTY_ROLE in p.user.roles, participants))
+            print(f'LiteParty particiapnts: {[participant.display_name for participant in participants]}')
             for party in lightFormation(participants, len(ROBIN_GUILD.parties)):
                 ROBIN_GUILD.parties.append(party)
             print(f'formation algorithm time: {dt.now() - formationStartTime}')
