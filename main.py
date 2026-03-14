@@ -1475,6 +1475,25 @@ async def f_fetch():
 
         await ROBIN_GUILD.GUILD.chunk()
 
+        print(f'Guild.GUILD.name: {ROBIN_GUILD.GUILD.name}: {ROBIN_GUILD.GUILD.id}')
+        print(f'Guild.PARTY_CH.name: {ROBIN_GUILD.PARTY_CH.name}: {ROBIN_GUILD.PARTY_CH.id}')
+        print(f'ROBIN_GUILD.PARTY_CH_beta: {ROBIN_GUILD.PARTY_CH_beta.name}: {ROBIN_GUILD.PARTY_CH_beta.id}')
+        print(f'ROBIN_GUILD.DEV_CH: {ROBIN_GUILD.DEV_CH.name}: {ROBIN_GUILD.DEV_CH.id}')
+        print(f'ROBIN_GUILD.COMMAND_CH: {ROBIN_GUILD.COMMAND_CH.name}: {ROBIN_GUILD.COMMAND_CH.id}')
+        print(f'ROBIN_GUILD.RECLUIT_LOG_CH: {ROBIN_GUILD.RECLUIT_LOG_CH.name}: {ROBIN_GUILD.RECLUIT_LOG_CH.id}')
+        print(f'ROBIN_GUILD.RECLUTING_EMOJI: {ROBIN_GUILD.RECLUTING_EMOJI.name}: {ROBIN_GUILD.RECLUTING_EMOJI.id}')
+        print(f'ROBIN_GUILD.FULLPARTY_EMOJI: {ROBIN_GUILD.FULLPARTY_EMOJI.name}: {ROBIN_GUILD.FULLPARTY_EMOJI.id}')
+        print(f'ROBIN_GUILD.LIGHTPARTY_EMOJI: {ROBIN_GUILD.LIGHTPARTY_EMOJI.name}: {ROBIN_GUILD.LIGHTPARTY_EMOJI.id}')
+        print(f'ROBIN_GUILD.MEMBER_ROLE: {ROBIN_GUILD.MEMBER_ROLE.name}: {ROBIN_GUILD.MEMBER_ROLE.id}')
+        print(f'ROBIN_GUILD.PRIORITY_ROLE: {ROBIN_GUILD.PRIORITY_ROLE.name}: {ROBIN_GUILD.PRIORITY_ROLE.id}')
+        print(f'ROBIN_GUILD.STATIC_PRIORITY_ROLE: {ROBIN_GUILD.STATIC_PRIORITY_ROLE.name}: {ROBIN_GUILD.STATIC_PRIORITY_ROLE.id}')
+        print(f'ROBIN_GUILD.LITE_PARTY_ROLE: {ROBIN_GUILD.LITE_PARTY_ROLE.name}: {ROBIN_GUILD.LITE_PARTY_ROLE.id}')
+        print('ROBIN_GUILD.ROLES:{')
+        for role, roleInfo in ROBIN_GUILD.ROLES.items():
+            print(f'\trole:{role}: .name:{roleInfo.name}, .emoji:{roleInfo.emoji}, .count:{roleInfo.count}')
+        print('}')
+        print('roleSetting:{')
+
 async def roleSetting(guildInfo):
     global ROBIN_GUILD
     # ロール設定チャンネル初期化
@@ -1483,6 +1502,14 @@ async def roleSetting(guildInfo):
         {'role':ROBIN_GUILD.GUILD.get_role(settingInfo['role']), 'emoji':client.get_emoji(settingInfo['emoji'])}
         for settingInfo in guildInfo['settingRoles']
     }
+    print('roleSetting:{')
+    for name, value in settingRoles.items():
+        print(f'\t{name}:', end='')
+        for k,v in value.items():
+            print(f' {k}:<{v.name}:{v.id}>', end='')
+        print()
+    print('}')
+
     await ROBIN_GUILD.COMMAND_CH.purge()
     ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH, settingRoles)
 
