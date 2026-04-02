@@ -889,8 +889,8 @@ def speedFormation(participants:list[Participant]) -> list[SpeedParty]:
             #     break
         else: loopFlg = False
     
-    # 未完成パーティ or 余りが一人の場合 パーティの解体
-    if any(map(lambda x:None in x, parties[-1].members.values())) or len(participants) == 1:
+    # 未完成パーティの解体
+    if any(map(lambda x:None in x, parties[-1].members.values())):
         for role, partyMembers in parties[-1].members.items():
             for partyMember in partyMembers:
                 if isinstance(partyMember, Participant):
