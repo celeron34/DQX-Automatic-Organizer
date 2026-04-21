@@ -92,14 +92,14 @@ class LightParty(Party):
         await self.sendAlianceInfo()
     
     async def sendAlianceInfo(self):
-        msg = f'@here\n## [パーティ:{self.aliance.number}]({self.aliance.message.jump_url}) と同盟'
+        msg = f'@everyone\n## [パーティ:{self.aliance.number}]({self.aliance.message.jump_url}) と同盟'
         for member in self.aliance.members:
             msg += f'\n- {member.display_name}'
         if self.thread: await self.thread.send(msg)
 
     async def _removeAliance(self, party:LightParty):
         self.aliance = None
-        await self.thread.send(f'@here\n## パーティ:{party.number} の同盟を解除')
+        await self.thread.send(f'@everyone\n## パーティ:{party.number} の同盟を解除')
         await self.alianceCheck(ROBIN_GUILD.parties)
         await self.message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
 
@@ -145,7 +145,7 @@ class LightParty(Party):
             await msg.delete(delay=5)
             return False
         print(f'Join request Done')
-        requestMessage = await self.thread.send(f'@here {member.display_name} から加入申請', view=ApproveView(duration=600))
+        requestMessage = await self.thread.send(f'@everyone {member.display_name} から加入申請', view=ApproveView(duration=600))
         self.joins[requestMessage] = member
 
     async def removeJoinRequest(self, target:discord.Member | LightParty | None) -> bool:
@@ -160,10 +160,10 @@ class LightParty(Party):
                         del party.joins[message]
                         await party.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, target)
                         if self == party:
-                            await message.edit(f'-# @here {member.display_name} からの加入申請', view=DummyApproveView())
+                            await message.edit(f'-# @everyone {member.display_name} からの加入申請', view=DummyApproveView())
                         else:
                             # パーティ以外であれば申請取り下げ通知
-                            await message.edit(f'@here {target.display_name} が参加取り下げ', view=DummyApproveView())
+                            await message.edit(f'@everyone {target.display_name} が参加取り下げ', view=DummyApproveView())
                         break
             return True
         elif isinstance(target, LightParty):
@@ -452,7 +452,7 @@ async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|disc
                 # partyのjoinsにあるなら削除と通知
                 if user == member:
                     del party.joins[delMessage]
-                    await delMessage.edit(f'@here {member.display_name} が参加取り下げ', view=DummyApproveView())
+                    await delMessage.edit(f'@everyone {member.display_name} が参加取り下げ', view=DummyApproveView())
                     break
     # 初期編成参加申請取り消し
     elif (ROBIN_GUILD.timeTable[0] - delta(minutes=30) <= now and
