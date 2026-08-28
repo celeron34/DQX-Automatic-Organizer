@@ -379,7 +379,8 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
     if ROBIN_GUILD.parties != None:
         if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI: # 参加絵文字(メッセージ判定は後)
             # 参加権チェック
-            if not await checkParticipationRight(user, reaction.message.channel):
+            if not (await checkRoleRight(user, reaction.message.channel, {ROBIN_GUILD.MEMBER_ROLE}, '参加権がありません') and
+                await checkRoleRight(user, reaction.message.channel, set(ROBIN_GUILD.ROLES.keys()), 'ロールが設定されていません')):
                 await reaction.message.remove_reaction(reaction.emoji, user)
                 return
             # 途中自動参加
@@ -399,7 +400,8 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
         if (reaction.message == ROBIN_GUILD.reclutingMessage and
             reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI):
             # 参加権チェック
-            if not await checkParticipationRight(user, reaction.message.channel):
+            if not (await checkRoleRight(user, reaction.message.channel, {ROBIN_GUILD.MEMBER_ROLE}, '参加権がありません') and \
+                await checkRoleRight(user, reaction.message.channel, set(ROBIN_GUILD.ROLES.keys()), 'ロールが設定されていません')):
                 await reaction.message.remove_reaction(reaction.emoji, user)
                 return
             if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
@@ -831,20 +833,23 @@ def recluitMessageReplace(msg:str, time:dt, count:int=0) -> str:
     return replaces(msg, replaceChars)
 
 # 参加権チェック
-async def checkParticipationRight(sender:discord.Member|discord.Interaction, channel:discord.TextChannel=None) -> bool:
+async def checkRoleRight(sender:discord.Member|discord.Interaction, channel:discord.TextChannel=None, roles:set[discord.Role]={}, errorMsg:str='') -> bool:
     global ROBIN_GUILD
     if isinstance(sender, discord.Interaction):
         member = sender.user
     else:
         member = sender
-    if ROBIN_GUILD.MEMBER_ROLE not in member.roles:
-        msg = f'{member.mention} 参加権がありません'
-        if isinstance(sender, discord.Interaction):
-            await sender.response.send_message(msg, ephemeral=True, delete_after=10)
-        elif isinstance(sender, discord.Member) and channel is not None:
-            await channel.send(msg, delete_after=10)
+    if len(roles & set(member.roles)) == 0:
+        # レスポンス
+        if errorMsg != '':
+            if isinstance(sender, discord.Interaction):
+                await sender.response.send_message(errorMsg, ephemeral=True, delete_after=10)
+            elif isinstance(sender, discord.Member) and channel is not None:
+                await channel.send(f'{member.mention} {errorMsg}', delete_after=10)
         return False
-    return True
+    else:
+        return True
+    
 
 async def autoJoinParticipant(user:discord.Member):
     '''最小パーティに参加申請'''
@@ -1189,7 +1194,8 @@ class FormationTopView(discord.ui.View):
     @discord.ui.button(label='新規パーティ生成', style=discord.ButtonStyle.blurple)
     async def newPartyButton(self, button:discord.ui.Button, interaction:discord.Interaction):
         print(f'{dt.now()} New Party button from {interaction.user.display_name}')
-        if not await checkParticipationRight(interaction.user):
+        if not (await checkRoleRight(user, None, {ROBIN_GUILD.MEMBER_ROLE}, '参加権がありません') and
+            await checkRoleRight(user, None, set(ROBIN_GUILD.ROLES.keys()), 'ロールが設定されていません')):
             return
         user = interaction.user
         # SpeedParty に所属しているなら新規作成を禁止
