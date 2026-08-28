@@ -839,12 +839,17 @@ async def checkParticipationRight(sender:discord.Member|discord.Interaction, cha
         member = sender
     if ROBIN_GUILD.MEMBER_ROLE not in member.roles:
         msg = f'{member.mention} 参加権がありません'
-        if isinstance(sender, discord.Interaction):
-            await sender.response.send_message(msg, ephemeral=True, delete_after=10)
-        elif isinstance(sender, discord.Member) and channel is not None:
-            await channel.send(msg, delete_after=10)
-        return False
-    return True
+    elif (set(ROBIN_GUILD.ROLES.keys()) | set(ROBIN_GUILD.LITE_PARTY_ROLE)) & set(member.roles()):
+        msg = f'{member.mention} ロールが設定されていません'
+    else:
+        return True
+
+    if isinstance(sender, discord.Interaction):
+        await sender.response.send_message(msg, ephemeral=True, delete_after=10)
+    elif isinstance(sender, discord.Member) and channel is not None:
+        await channel.send(msg, delete_after=10)
+    return False
+    
 
 async def autoJoinParticipant(user:discord.Member):
     '''最小パーティに参加申請'''
