@@ -842,7 +842,7 @@ async def checkRoleRight(sender:discord.Member|discord.Interaction, channel:disc
     print(set(member.roles))
     print(roles)
     print(roles & set(member.roles))
-    if roles & set(member.roles) == {}:
+    if len(roles & set(member.roles)) == 0:
         # レスポンス
         if errorMsg != '':
             if isinstance(sender, discord.Interaction):
