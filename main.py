@@ -400,7 +400,8 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
         if (reaction.message == ROBIN_GUILD.reclutingMessage and
             reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI):
             # 参加権チェック
-            if not await checkRoleRight(user, reaction.message.channel, {ROBIN_GUILD.MEMBER_ROLE}, '参加権がありません'):
+            if not await checkRoleRight(user, reaction.message.channel, {ROBIN_GUILD.MEMBER_ROLE}, '参加権がありません') and \
+                not await checkRoleRight(user, reaction.message.channel, set(ROBIN_GUILD.ROLES.keys()), 'ロールが設定されていません'):
                 await reaction.message.remove_reaction(reaction.emoji, user)
                 return
             if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
@@ -1197,7 +1198,8 @@ class FormationTopView(discord.ui.View):
     @discord.ui.button(label='新規パーティ生成', style=discord.ButtonStyle.blurple)
     async def newPartyButton(self, button:discord.ui.Button, interaction:discord.Interaction):
         print(f'{dt.now()} New Party button from {interaction.user.display_name}')
-        if not await checkRoleRight(user, None, {ROBIN_GUILD.MEMBER_ROLE}, '参加権がありません'):
+        if not await checkRoleRight(user, None, {ROBIN_GUILD.MEMBER_ROLE}, '参加権がありません') and \
+            not await checkRoleRight(user, None, set(ROBIN_GUILD.ROLES.keys()), 'ロールが設定されていません'):
             return
         user = interaction.user
         # SpeedParty に所属しているなら新規作成を禁止
