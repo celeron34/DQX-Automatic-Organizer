@@ -839,6 +839,9 @@ async def checkRoleRight(sender:discord.Member|discord.Interaction, channel:disc
     else:
         member = sender
     # if (set(ROBIN_GUILD.ROLES.keys()) | {ROBIN_GUILD.LITE_PARTY_ROLE}) & set(member.roles()) == {}:
+    print(set(member.roles()))
+    print(roles)
+    print(roles & set(member.roles()))
     if roles & set(member.roles()) == {}:
         # レスポンス
         if errorMsg != '':
