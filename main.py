@@ -1198,10 +1198,10 @@ class FormationTopView(discord.ui.View):
     @discord.ui.button(label='新規パーティ生成', style=discord.ButtonStyle.blurple)
     async def newPartyButton(self, button:discord.ui.Button, interaction:discord.Interaction):
         print(f'{dt.now()} New Party button from {interaction.user.display_name}')
+        user = interaction.user
         if not (await checkRoleRight(user, None, {ROBIN_GUILD.MEMBER_ROLE}, '参加権がありません') and
             await checkRoleRight(user, None, set(ROBIN_GUILD.ROLES.keys()), 'ロールが設定されていません')):
             return
-        user = interaction.user
         # SpeedParty に所属しているなら新規作成を禁止
         if ROBIN_GUILD.parties and any(p.isMember(user) for p in ROBIN_GUILD.parties if isinstance(p, SpeedParty)):
             await interaction.response.send_message(f'{user.mention}\nフルパーティメンバは新規パーティを生成できません', delete_after=5, ephemeral=True)
