@@ -1420,6 +1420,25 @@ async def f_get_participant_name(ctx:discord.ApplicationContext):
     csvFile = discord.File(filename, filename=dt.now().strftime('participant_name_%y%m%d-%H%M%S.csv'))
     await ctx.respond(f'{ctx.interaction.user.mention}\nフォーマットは\n`ユーザーID,ユーザー名,表示名,加入時期`', file=csvFile)
 
+@client.slash_command(name='f-get-participant-role', description='サーバーメンバのIDとロールの対応をcsv形式で返します')
+async def f_get_participant_role(ctx:discord.ApplicationContext):
+    if ctx.guild == None:
+        await ctx.respond('目的のサーバー内でコマンドしてください')
+        return 
+    targetRoles = [ROBIN_GUILD.LITE_PARTY_ROLE] + list(ROBIN_GUILD.ROLES.keys())
+    filename = f'reactionLog/{ctx.interaction.guild.name}_roleList.csv'
+    with open(filename, 'w') as f:
+        async for member in ctx.interaction.guild.fetch_members():
+            if member.bot: continue
+            f.write(f'{member.id},{member.name},{member.display_name}')
+            for role in targetRoles:
+                f.write(',')
+                if role in member.roles:
+                    f.write(role.name)
+            f.write('\n')
+    csvFile = discord.File(filename, filename=dt.now().strftime('participant_role_%y%m%d-%H%M%S.csv'))
+    await ctx.respond(f'{ctx.interaction.user.mention}\nフォーマットは\n`ユーザーID,ユーザー名,表示名,{",".join(map(lambda role:role.name, targetRoles))}`', file=csvFile)
+
 async def f_reboot(ctx:discord.ApplicationContext|None = None):
     if ctx: await ctx.respond('再起動します')
     await ROBIN_GUILD.COMMAND_CH.purge()
