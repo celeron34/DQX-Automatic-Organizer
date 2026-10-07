@@ -10,7 +10,7 @@ from sys import argv, exc_info, executable, exit
 ##############################################################################################
 #region スラッシュコマンド
 # @client.slash_command(name='f-formation', description='タイムテーブルの割り込み')
-# async def f_reclute(ctx:ApplicationContext):
+# async def f_recruit(ctx:ApplicationContext):
 #     if ctx.guild == None:
 #         await ctx.respond('目的のサーバー内でコマンドしてください')
 #         return
