@@ -4,6 +4,7 @@ version = '1.1.10'
 import discord
 from discord.ext import tasks, commands
 from dqx_ise import getTable
+from formation import speedFormation as formSpeedParties, randomFormation as formLightParties
 from datetime import datetime as dt, timedelta as delta
 from asyncio import sleep, create_task
 # from asyncio import get_running_loop, create_task
@@ -571,11 +572,11 @@ async def loop():
             # shuffle(participants)
             # print(f'shaffled: {[participant.display_name for participant in participants]}')
             participantsCopy = participants.copy()
-            for party in speedFormation(participants):
+            for party in createSpeedParties(participants):
                 ROBIN_GUILD.parties.append(party)
             participants = list(filter(lambda p:ROBIN_GUILD.LITE_PARTY_ROLE in p.user.roles, participants))
             print(f'LiteParty particiapnts: {[participant.display_name for participant in participants]}')
-            for party in lightFormation(participants, len(ROBIN_GUILD.parties)):
+            for party in createLightParties(participants, len(ROBIN_GUILD.parties)):
                 ROBIN_GUILD.parties.append(party)
             print(f'formation algorithm time: {dt.now() - formationStartTime}')
 
@@ -643,9 +644,9 @@ async def loop():
                 if participant is None: break
                 participants.append(participant)
             parties:list[SpeedParty|LightParty] = []
-            for party in speedFormation(participants):
+            for party in createSpeedParties(participants):
                 parties.append(party)
-            for party in lightFormation(participants, len(parties)):
+            for party in createLightParties(participants, len(parties)):
                 parties.append(party)
             
             sendSpeedpartyDisplayName = ''
@@ -869,89 +870,37 @@ async def autoJoinParticipant(user:discord.Member):
 
 ##############################################################################################
 #region パーティ編成アルゴリズム
-def speedFormation(participants:list[Participant]) -> list[SpeedParty]:
-    '''
-    <h1>Parameter</h1>
-    players: list[Participant]
-    <h1>Return</h1>
-    List[List[Participant]]
-    '''
+def createSpeedParties(participants:list[Participant]) -> list[SpeedParty]:
+    """formation.py の汎用編成結果を Discord 用 SpeedParty に変換する。"""
+    participantRoles = {participant:set(participant.roles) for participant in participants}
+    formation = {role:info.count for role, info in ROBIN_GUILD.ROLES.items()}
+    formedParties = formSpeedParties(participantRoles, formation)
+
+    # 旧 speedFormation と同様、成立したフルパーティの参加者を元リストから除く。
+    assigned = {member for party in formedParties for members in party.values() for member in members}
+    participants[:] = [participant for participant in participants if participant not in assigned]
+
     parties:list[SpeedParty] = []
-    parties.append(SpeedParty(len(parties)+1, {role:info.count for role, info in ROBIN_GUILD.ROLES.items()}))
-    loopFlg = True
-    while loopFlg:
-        partyNoneCount = parties[-1].noneCount()
-        if partyNoneCount > len(participants) or partyNoneCount == 0 and len(participants) < 8: break
-        if partyNoneCount == 0: # 空きのあるパーティがない 新しい空のパーティを作る
-            parties.append(SpeedParty(len(parties)+1, {role:info.count for role, info in ROBIN_GUILD.ROLES.items()}))
-        for participantNum in range(len(participants)):
-            if addHispeedParty(parties, participants[participantNum]):
-                del participants[participantNum]
-                break
-            # 計算量短縮を図ったけどムリかも
-            # if len(participants) - participantNum < partyNoneCount:
-            #     loopFlg = False
-            #     break
-        else: loopFlg = False
-    
-    # 未完成パーティの解体
-    if any(map(lambda x:None in x, parties[-1].members.values())):
-        for role, partyMembers in parties[-1].members.items():
-            for partyMember in partyMembers:
-                if isinstance(partyMember, Participant):
-                    participants.insert(0, partyMember)
-        del parties[-1]
-    
+    for partyNumber, formedParty in enumerate(formedParties, start=1):
+        party = SpeedParty(partyNumber, formation)
+        for role, members in formedParty.items():
+            for member in members:
+                party.addMember(member, role)
+        parties.append(party)
     return parties
 
-def addHispeedParty(parties:list[SpeedParty], participant:Participant, roles:set[discord.Role]=set()) -> bool:
-    searchRoles = [role for role in participant.roles if role not in roles]
-    shuffle(searchRoles)
-    for role in searchRoles:
-        if None in parties[-1].members[role]:
-            # 空きがあったから入れて True返す
-            if parties[-1].addMember(participant, role): return True
-            else: return False
 
-    for partyNum in range(len(parties)-1, -1, -1): # 後のパーティから走査
-        for role in [r for r in participant.roles if r not in roles]: # ロール走査 ただし親ノードで走査済は無視
-            for partyMemberNum in range(len(parties[partyNum].members[role])): # メンバ走査 ロールをもとに
-                partyMember = parties[partyNum].members[role][partyMemberNum] # 対象のメンバ復元のために保持
-                parties[partyNum].members[role][partyMemberNum] = None # 対象枠を空ける
-                if addHispeedParty(parties, partyMember, roles|participant.roles): # 子ノードへ引継ぎ
-                    # 成功したため追加
-                    parties[partyNum].addMember(participant, role)
-                    return True
-                else: # 最終的に枠を空けられなかった
-                    parties[partyNum].members[role][partyMemberNum] = partyMember # 保持していたメンバ返却
-    else: # どのパーティでも交代できない
-        return False
-    
-def lightFormation(participants:list[Participant], partyIndex:int) -> list[LightParty]:
-    if len(participants) == 0: return []
-    partiesNum = roundUp(len(participants) / 4) # Number of パーティ
-    partyNum = len(participants) // partiesNum # パーティ当たりの人数
-    parties_num = [partyNum] * partiesNum # パーティ当たりの人数をパーティ数分List[int]
-    for i in range(len(participants) % partiesNum): # あまり人数分足す
-        parties_num[i] += 1
+def createLightParties(participants:list[Participant], partyIndex:int) -> list[LightParty]:
+    """formation.py の汎用均等分割結果を Discord 用 LightParty に変換する。"""
+    participantRoles = {participant:set(participant.roles) for participant in participants}
+    formedParties = formLightParties(participantRoles, 4)
 
-    # パーティ割り振り人数確定
-    # メンバー振り分け
     parties:list[LightParty] = []
-    p = 0
-    for n in parties_num:
+    for members in formedParties:
         partyIndex += 1
-        parties.append(LightParty(partyIndex, []))
-        for _ in range(n):
-            parties[-1].addMember(participants[p])
-            p += 1
-
+        parties.append(LightParty(partyIndex, members.copy()))
     return parties
 
-def roundUp(value:float):
-    roundValue = round(value)
-    if value - roundValue > 0: roundValue += 1
-    return roundValue
 
 def pickParticipant(priorityPool:list[Participant], normalPool:list[Participant], bias:int) -> Participant:
     if len(priorityPool) == 0:
