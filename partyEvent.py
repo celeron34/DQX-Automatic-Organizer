@@ -3,7 +3,7 @@ from __future__ import annotations # 必ず先頭に
 from datetime import datetime as dt, timedelta as delta
 from typing import Any
 from discord import Guild, File, Member, Message, TextChannel, Role, Emoji, CategoryChannel, User, Thread
-from Views import ApproveView, FormationTopView
+from views import ApproveView, FormationTopView
 from formation import speedFormation, randomFormation
 from random import shuffle
 from main import client, CONFIG, config, GUILD_INFO
