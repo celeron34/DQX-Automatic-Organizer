@@ -14,15 +14,7 @@ def speedFormation(
     participants: MutableMapping[MemberT, MutableSet[RoleT]],
     formation: Mapping[RoleT, int],
 ) -> list[Formation]:
-    """Create as many complete role-constrained parties as possible.
-
-    participants maps each member to the roles that member can fill.
-    Members assigned to a complete party are removed from participants.
-    Unassigned members remain so another formation strategy can consume them.
-
-    The allocator first uses empty slots. If a member cannot be inserted
-    directly, it recursively relocates an already assigned member.
-    """
+    """Create complete role-constrained parties using recursive relocation."""
     if any(count < 0 for count in formation.values()):
         raise ValueError("formation counts must be non-negative")
 
@@ -31,81 +23,94 @@ def speedFormation(
         return []
 
     capabilities = {member: set(roles) for member, roles in participants.items()}
-    parties: list[Formation] = []
+    remaining = list(participants)
+    parties: list[dict[RoleT, list[MemberT | None]]] = [
+        {role: [None] * count for role, count in formation.items()}
+    ]
 
-    while len(participants) >= party_size:
-        party: dict[RoleT, list[MemberT | None]] = {
-            role: [None] * count for role, count in formation.items()
-        }
-
-        remaining = list(participants)
-        progress = True
-        while progress and _none_count(party):
-            progress = False
-            for member in remaining.copy():
-                if _add_member(
-                    party,
-                    member,
-                    capabilities,
-                    frozenset(),
-                ):
-                    remaining.remove(member)
-                    progress = True
-                    break
-
-        if _none_count(party):
+    while True:
+        empty = _none_count(parties[-1])
+        if empty > len(remaining) or (empty == 0 and len(remaining) < party_size):
             break
 
-        completed: Formation = {
+        if empty == 0:
+            parties.append(
+                {role: [None] * count for role, count in formation.items()}
+            )
+
+        for member in remaining.copy():
+            if _add_member(parties, member, capabilities, frozenset()):
+                remaining.remove(member)
+                break
+        else:
+            break
+
+    if parties and _none_count(parties[-1]):
+        parties.pop()
+
+    completed: list[Formation] = [
+        {
             role: [member for member in members if member is not None]
             for role, members in party.items()
         }
-        parties.append(completed)
+        for party in parties
+    ]
 
-        for members in completed.values():
-            for member in members:
-                participants.pop(member, None)
+    assigned = {
+        member
+        for party in completed
+        for members in party.values()
+        for member in members
+    }
+    for member in assigned:
+        participants.pop(member, None)
 
-    return parties
+    return completed
 
 
 def _add_member(
-    party: dict[RoleT, list[MemberT | None]],
+    parties: list[dict[RoleT, list[MemberT | None]]],
     member: MemberT,
     capabilities: Mapping[MemberT, set[RoleT]],
     visited_roles: frozenset[RoleT],
 ) -> bool:
-    """Insert member, recursively relocating occupants when necessary."""
+    """Insert member, recursively relocating occupants across all parties."""
     member_roles = capabilities[member]
     search_roles = [
         role
         for role in member_roles
-        if role in party and role not in visited_roles
+        if role in parties[-1] and role not in visited_roles
     ]
     shuffle(search_roles)
 
+    # Prefer a free slot in the newest party.
     for role in search_roles:
-        members = party[role]
+        members = parties[-1][role]
         if None in members:
             members[members.index(None)] = member
             return True
 
-    for role in search_roles:
-        members = party[role]
-        for index, occupant in enumerate(members):
-            if occupant is None:
-                continue
+    # Otherwise search newest -> oldest and move an occupant recursively.
+    for party in reversed(parties):
+        for role in [
+            role
+            for role in member_roles
+            if role in party and role not in visited_roles
+        ]:
+            for index, occupant in enumerate(party[role]):
+                if occupant is None:
+                    continue
 
-            members[index] = None
-            if _add_member(
-                party,
-                occupant,
-                capabilities,
-                visited_roles | frozenset(member_roles),
-            ):
-                members[index] = member
-                return True
-            members[index] = occupant
+                party[role][index] = None
+                if _add_member(
+                    parties,
+                    occupant,
+                    capabilities,
+                    visited_roles | frozenset(member_roles),
+                ):
+                    party[role][index] = member
+                    return True
+                party[role][index] = occupant
 
     return False
 
@@ -118,7 +123,7 @@ def randomFormation(
     participants: MutableMapping[MemberT, MutableSet[RoleT]],
     party_limit: int = 4,
 ) -> list[list[MemberT]]:
-    """Distribute remaining members into balanced parties."""
+    """Distribute members into balanced parties up to party_limit."""
     if party_limit <= 0:
         raise ValueError("party_limit must be greater than zero")
     if not participants:
