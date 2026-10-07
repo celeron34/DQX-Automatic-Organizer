@@ -78,10 +78,10 @@ class ApproveView(View):
                     if isinstance(p, RandomParty) and p.isMember(joinMember):
                         p.removeMember(joinMember)
                 for p in {p for p in ROBIN_GUILD.parties if joinMember in p.joins.values()}: # 参加リアクション全削除
-                    await p.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember)
+                    await p.message.remove_reaction(ROBIN_GUILD.RECRUITING_EMOJI, joinMember)
                 await party.joinMember(Participant(joinMember, set(role for role in joinMember.roles if role in ROBIN_GUILD.ROLES.keys())))
                 await party.removeJoinRequest(joinMember)
-                await thread.starting_message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember) # リアクション処理
+                await thread.starting_message.remove_reaction(ROBIN_GUILD.RECRUITING_EMOJI, joinMember) # リアクション処理
             else:
                 print('パーティメンバ以外による承認')
                 await interaction.response.defer()
@@ -182,20 +182,20 @@ async def createNewParty(user:Member, free:bool=False):
     newParty.thread = await newParty.message.create_thread(name=f'Party:{newParty.number}', auto_archive_duration=60)
     timeout = (ROBIN_GUILD.timeTable[0] - dt.now() + delta(minutes=60))
     newParty.threadControlMessage = await newParty.thread.send(view=PartyView(timeout=timeout.seconds))
-    await newParty.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
+    await newParty.message.add_reaction(ROBIN_GUILD.RECRUITING_EMOJI)
     ROBIN_GUILD.parties.append(newParty)
 
 class RebootView(View):
     def __init__(self, *items, timeout=None, disable_on_timeout=True):
         super().__init__(*items, timeout=timeout, disable_on_timeout = disable_on_timeout)
     @button(label='次の周回終了で再起動', style=ButtonStyle.green)
-    async def scaduleReboot(self, button:Button, interaction:Interaction):
-        global rebootScadule
+    async def scheduleReboot(self, button:Button, interaction:Interaction):
+        global rebootSchedule
         try:
-            rebootScadule = interaction.channel
+            rebootSchedule = interaction.channel
         except Exception as e:
             printTraceback(e)
-            rebootScadule = True
+            rebootSchedule = True
         buttonAllDisable(self.children)
         print(f'{dt.now()} 再起動スケジュールが設定されました')
         await interaction.response.edit_message(view=self)
@@ -207,18 +207,18 @@ class RebootView(View):
         await interaction.response.edit_message(view=self)
         await f_reboot(interaction)
 
-# class RecluteView(View):
+# class RecruitView(View):
 #     def __init__(self, *items, timeout=None, disable_on_timeout=True, disable01=False, disable02=False):
 #         super().__init__(*items, timeout=timeout, disable_on_timeout = disable_on_timeout)
 #         self.disable01 = disable01
 #         self.disable02 = disable02
 #     @button(label='Button01', style=ButtonStyle.green)
-#     async def reclute01(self, button:Button, interaction:Interaction):
-#         await interaction.response.send_message(f'個別表示テスト {button.label} が押されました', ephemeral=True, view=RecluteView(disable01=True, timeout=180, disable_on_timeout=False))
+#     async def recruit01(self, button:Button, interaction:Interaction):
+#         await interaction.response.send_message(f'個別表示テスト {button.label} が押されました', ephemeral=True, view=RecruitView(disable01=True, timeout=180, disable_on_timeout=False))
 #         print(f'{dt.now()} {interaction.user} {button.label}')
 #     @button(label='Button01', style=ButtonStyle.red)
-#     async def reclute02(self, button:Button, interaction:Interaction):
-#         await interaction.response.send_message(f'個別表示テスト {button.label} が押されました', ephemeral=True, view=RecluteView(disable02=True, timeout=180, disable_on_timeout=False))
+#     async def recruit02(self, button:Button, interaction:Interaction):
+#         await interaction.response.send_message(f'個別表示テスト {button.label} が押されました', ephemeral=True, view=RecruitView(disable02=True, timeout=180, disable_on_timeout=False))
 #         print(f'{dt.now()} {interaction.user} {button.label}')
 
 def buttonAllDisable(children):

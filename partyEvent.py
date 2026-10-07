@@ -15,12 +15,12 @@ class PartyEvent:
                  speedPartyFormation:dict[Any,int],
                  eventTime:dt,
                  endTime:delta|dt,
-                 announseTime:delta|dt,
+                 announceTime:delta|dt,
                  formationTime:delta|dt|None=None,
                  remindTime:delta|dt|None=None,
-                 threadAutoArciveDuration:int=60,
-                 speedAliance:int=0,
-                 randomAliance:int=0,
+                 threadAutoArchiveDuration:int=60,
+                 speedAlliance:int=0,
+                 randomAlliance:int=0,
                  randomPartyLimit:int=0,
                  speedPartySendImage:File|None=None,
                  endMessage:str=''):
@@ -28,8 +28,8 @@ class PartyEvent:
         self.speedPartyFormation:dict[Any,int] = speedPartyFormation
         self.eventTime:dt = eventTime
         self.eventTitle:str = eventTitle
-        self.speedAliance:int = speedAliance
-        self.randomAliance:int = randomAliance
+        self.speedAlliance:int = speedAlliance
+        self.randomAlliance:int = randomAlliance
         self.randomPartyLimit:int = randomPartyLimit
         self.speedPartySendImage:File|None = speedPartySendImage
         self.endMessage:str = endMessage
@@ -37,33 +37,33 @@ class PartyEvent:
         else: self.formationTime:delta = formationTime
         if isinstance(endTime, dt): self.endTime:delta = endTime - eventTime
         else: self.endTime:delta = endTime
-        if isinstance(announseTime, dt): self.announseTime:delta = announseTime - eventTime
-        else: self.announseTime:delta = announseTime
+        if isinstance(announceTime, dt): self.announceTime:delta = announceTime - eventTime
+        else: self.announceTime:delta = announceTime
         if isinstance(remindTime, dt): self.remindTime:delta = remindTime - eventTime
         else: self.remindTime:delta = remindTime
         self.guild:GuildInfo = guild
-        self.reclutingMessage:Message = None
+        self.recruitingMessage:Message = None
         self.partyChannel:TextChannel = None
-        self.threadAutoArciveDuration:int = threadAutoArciveDuration
+        self.threadAutoArchiveDuration:int = threadAutoArchiveDuration
         self.speedParties:list[SpeedParty] = list()
         self.randomParties:list[RandomParty] = list()
         if self.remindTime == None: self.status:int = 1
         else: self.status:int = 0
     async def tick(self, nowTime:dt):
         if self.status == 0: # アナウンス時間
-            if self.eventTime + self.announseTime > nowTime:
+            if self.eventTime + self.announceTime > nowTime:
                 self.status = 1
             else: return None
             #region View書いてない
             self.partyChannel = await GUILD_INFO[self.guild].PARTY_CATEGORY.create_text_channel(self.eventTime.strftime(f'{self.eventTitle}'))
-            self.reclutingMessage = await self.partyChannel.send(self.eventTime.strftime(f'【{self.eventTitle}】\n参加希望はボタンを押してください'))
+            self.recruitingMessage = await self.partyChannel.send(self.eventTime.strftime(f'【{self.eventTitle}】\n参加希望はボタンを押してください'))
             #endregion
 
         elif self.status == 1: # リマインド時間
             if self.eventTime + self.remindTime > nowTime:
                 self.status = 2
             if self.status != 2: return None
-            self.reclutingMessage = await self.partyChannel.send(self.eventTime.strftime(f'編成まであと%M分\n{self.reclutingMessage.jump_url}'))
+            self.recruitingMessage = await self.partyChannel.send(self.eventTime.strftime(f'編成まであと%M分\n{self.recruitingMessage.jump_url}'))
         
         elif self.status == 2: # 編成時間
             #region 編成
@@ -111,17 +111,17 @@ class PartyEvent:
                 for party in self.randomParties: # 通常パーティ通知
                     party.message = await self.partyChannel.send(party.getPartyMessage(self.guildRoles))
             for party in self.speedParties: # 高速パーティスレッド
-                party.thread = await party.message.create_thread(name=f'SpeedParty:{party.number}', auto_archive_duration=self.threadAutoArciveDuration)
+                party.thread = await party.message.create_thread(name=f'SpeedParty:{party.number}', auto_archive_duration=self.threadAutoArchiveDuration)
             if self.speedParties: # 高速パーティがあるときは画像を出す
                 self.partyChannel.send(file=self.speedPartySendImage)
             for party in self.randomParties: # 通常パーティスレッド
-                party.thread = await party.message.create_thread(name=f'Party:{party.number}', auto_archive_duration=self.threadAutoArciveDuration)
+                party.thread = await party.message.create_thread(name=f'Party:{party.number}', auto_archive_duration=self.threadAutoArchiveDuration)
             
             # アライアンスチェック
-            if self.randomAliance:
+            if self.randomAlliance:
                 for party in self.randomParties:
-                    if party.aliance is None:
-                        await party.alianceCheck(self.randomAliance)
+                    if party.alliance is None:
+                        await party.allianceCheck(self.randomAlliance)
                         party.message.edit(party.getPartyMessage(self.guildRoles))
 
             #endregion
@@ -163,44 +163,44 @@ class RandomParty(Party):
         super().__init__(number)
         self.members:list[Participant|Guest] = players
         self.threadControlMessage:Message|None = None
-        self.aliance:RandomParty|None = None
+        self.alliance:RandomParty|None = None
         self.free:bool = free
     
-    async def addAlianceParty(self, party:RandomParty):
-        await self._addAlience(party)
-        await party._addAlience(self)
+    async def addAllianceParty(self, party:RandomParty):
+        await self._addAlliance(party)
+        await party._addAlliance(self)
         await party.message.edit(party.getPartyMessage(ROBIN_GUILD.ROLES))
 
-    async def leaveAlianceParty(self):
-        await self.aliance._removeAliance(self)
-        await self._removeAliance(self.aliance)
+    async def leaveAllianceParty(self):
+        await self.alliance._removeAlliance(self)
+        await self._removeAlliance(self.alliance)
 
-    async def _addAlience(self, party:RandomParty):
-        self.aliance = party
-        await self.sendAlianceInfo()
+    async def _addAlliance(self, party:RandomParty):
+        self.alliance = party
+        await self.sendAllianceInfo()
     
-    async def sendAlianceInfo(self):
-        msg = f'@here\n## [パーティ:{self.aliance.number}]({self.aliance.message.jump_url}) と同盟'
-        for member in self.aliance.members:
+    async def sendAllianceInfo(self):
+        msg = f'@here\n## [パーティ:{self.alliance.number}]({self.alliance.message.jump_url}) と同盟'
+        for member in self.alliance.members:
             msg += f'\n- {member.display_name}'
         if self.thread: await self.thread.send(msg)
 
-    async def _removeAliance(self, party:RandomParty):
-        self.aliance = None
+    async def _removeAlliance(self, party:RandomParty):
+        self.alliance = None
         await self.thread.send(f'@here\n## パーティ:{party.number} の同盟を解除')
-        await self.alianceCheck(ROBIN_GUILD.parties)
+        await self.allianceCheck(ROBIN_GUILD.parties)
         await self.message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
 
-    async def alianceCheck(self, parties:list[RandomParty]):
-        if self.membersNum() == 4 and self.aliance is None:
+    async def allianceCheck(self, parties:list[RandomParty]):
+        if self.membersNum() == 4 and self.alliance is None:
             # ４人到達 アライアンス探索
-            print(f'party:{self.number} aliance check')
+            print(f'party:{self.number} alliance check')
             for party in parties:
                 if party == self or not isinstance(party, RandomParty): continue
                 print(f'party:{party.number} -> {party.membersNum()}')
-                if party.membersNum() == 4 and party.aliance is None:
-                    print(f'Aliance:{self.number} <=> {party.number}')
-                    await self.addAlianceParty(party)
+                if party.membersNum() == 4 and party.alliance is None:
+                    print(f'Alliance:{self.number} <=> {party.number}')
+                    await self.addAllianceParty(party)
                     break
     
     def membersNum(self) -> int:
@@ -211,8 +211,8 @@ class RandomParty(Party):
         if self.free:
             msg += '## 途中抜けOK\n'
         msg += f'\| 【パーティ:{self.number}】'
-        if self.aliance:
-            msg += f'同盟 -> [パーティ{self.aliance.number}]({self.aliance.message.jump_url})'
+        if self.alliance:
+            msg += f'同盟 -> [パーティ{self.alliance.number}]({self.alliance.message.jump_url})'
         for player in self.members:
             msg += f'\n\| {player.mention}'
             for role in player.roles:
@@ -228,7 +228,7 @@ class RandomParty(Party):
             return True
         if member in map(lambda x:x.user, self.members): # 自パーティだった
             print('自パーティだった')
-            await self.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, member)
+            await self.message.remove_reaction(ROBIN_GUILD.RECRUITING_EMOJI, member)
             msg = await ROBIN_GUILD.PARTY_CH.send(f'{member.mention}加入中のパーティには参加申請できません')
             await msg.delete(delay=5)
             return False
@@ -261,13 +261,13 @@ class RandomParty(Party):
         if not isinstance(participant, Guest) and participant.user in map(lambda x:x.user, self.members): return False
         self.addMember(participant)
         if self.thread is None: return True
-        print(f'PartyNumber:{self.number} JoinMember:{participant.display_name} PartyMemberNumber:{self.membersNum()} Aliance:{self.aliance}')
+        print(f'PartyNumber:{self.number} JoinMember:{participant.display_name} PartyMemberNumber:{self.membersNum()} Alliance:{self.alliance}')
         if isinstance(participant, Participant): # メンバならスレッドに入れる
             await self.thread.add_user(participant.user)
         await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
-        await self.alianceCheck(ROBIN_GUILD.parties)
+        await self.allianceCheck(ROBIN_GUILD.parties)
         if self.membersNum() >= 4:
-            await self.message.clear_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
+            await self.message.clear_reaction(ROBIN_GUILD.RECRUITING_EMOJI)
         await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
         return True
     
@@ -279,12 +279,12 @@ class RandomParty(Party):
                 self.members.remove(participant)
                 print(f'PartyNum: {self.number} RemoveMember: {member.display_name}')
                 await self.thread.send(f'{member.display_name} が離脱\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
-                if self.aliance and self.membersNum() < 4:
-                    await self.leaveAlianceParty()
+                if self.alliance and self.membersNum() < 4:
+                    await self.leaveAllianceParty()
                 await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
                 break
             if self.membersNum() >= 4:
-                self.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
+                self.message.add_reaction(ROBIN_GUILD.RECRUITING_EMOJI)
         return True
 
     async def removeGuest(self) -> bool:

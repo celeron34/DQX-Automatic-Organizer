@@ -33,9 +33,9 @@ client = commands.Bot(
     intents=intents
     )
 
-rebootScadule:bool|discord.TextChannel = False
+rebootSchedule:bool|discord.TextChannel = False
 
-#region Classese
+#region Classes
 
 class RoleInfo:
     def __init__(self, emoji:discord.Emoji, name:str, count:int):
@@ -76,44 +76,44 @@ class LightParty(Party):
         super().__init__(number)
         self.members:list[Participant|Guest] = players
         self.threadControlMessage:discord.Message|None = None
-        self.aliance:LightParty|None = None
+        self.alliance:LightParty|None = None
         self.free:bool = free
     
-    async def addAlianceParty(self, party:LightParty):
-        await self._addAlience(party)
-        await party._addAlience(self)
+    async def addAllianceParty(self, party:LightParty):
+        await self._addAlliance(party)
+        await party._addAlliance(self)
         await party.message.edit(party.getPartyMessage(ROBIN_GUILD.ROLES))
 
-    async def leaveAlianceParty(self):
-        await self.aliance._removeAliance(self)
-        await self._removeAliance(self.aliance)
+    async def leaveAllianceParty(self):
+        await self.alliance._removeAlliance(self)
+        await self._removeAlliance(self.alliance)
 
-    async def _addAlience(self, party:LightParty):
-        self.aliance = party
-        await self.sendAlianceInfo()
+    async def _addAlliance(self, party:LightParty):
+        self.alliance = party
+        await self.sendAllianceInfo()
     
-    async def sendAlianceInfo(self):
-        msg = f'@everyone\n## [パーティ:{self.aliance.number}]({self.aliance.message.jump_url}) と同盟'
-        for member in self.aliance.members:
+    async def sendAllianceInfo(self):
+        msg = f'@everyone\n## [パーティ:{self.alliance.number}]({self.alliance.message.jump_url}) と同盟'
+        for member in self.alliance.members:
             msg += f'\n- {member.display_name}'
         if self.thread: await self.thread.send(msg)
 
-    async def _removeAliance(self, party:LightParty):
-        self.aliance = None
+    async def _removeAlliance(self, party:LightParty):
+        self.alliance = None
         await self.thread.send(f'@everyone\n## パーティ:{party.number} の同盟を解除')
-        await self.alianceCheck(ROBIN_GUILD.parties)
+        await self.allianceCheck(ROBIN_GUILD.parties)
         await self.message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
 
-    async def alianceCheck(self, parties:list[LightParty]):
-        if self.membersNum() == 4 and self.aliance is None:
+    async def allianceCheck(self, parties:list[LightParty]):
+        if self.membersNum() == 4 and self.alliance is None:
             # ４人到達 アライアンス探索
-            print(f'party:{self.number} aliance check')
+            print(f'party:{self.number} alliance check')
             for party in parties:
                 if party == self or not isinstance(party, LightParty): continue
                 print(f'party:{party.number} -> {party.membersNum()}')
-                if party.membersNum() == 4 and party.aliance is None:
-                    print(f'Aliance:{self.number} <=> {party.number}')
-                    await self.addAlianceParty(party)
+                if party.membersNum() == 4 and party.alliance is None:
+                    print(f'Alliance:{self.number} <=> {party.number}')
+                    await self.addAllianceParty(party)
                     break
     
     def membersNum(self) -> int:
@@ -124,8 +124,8 @@ class LightParty(Party):
         if self.free:
             msg += '## 途中抜けOK\n'
         msg += f'\| 【パーティ:{self.number}】'
-        if self.aliance:
-            msg += f'同盟 -> [パーティ{self.aliance.number}]({self.aliance.message.jump_url})'
+        if self.alliance:
+            msg += f'同盟 -> [パーティ{self.alliance.number}]({self.alliance.message.jump_url})'
         for player in self.members:
             msg += f'\n\| {player.mention}'
             for role in player.roles:
@@ -141,7 +141,7 @@ class LightParty(Party):
             return True
         if member in map(lambda x:x.user, self.members): # 自パーティだった
             print('自パーティだった')
-            await self.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, member)
+            await self.message.remove_reaction(ROBIN_GUILD.RECRUITING_EMOJI, member)
             msg = await ROBIN_GUILD.PARTY_CH.send(f'{member.mention}加入中のパーティには参加申請できません')
             await msg.delete(delay=5)
             return False
@@ -159,7 +159,7 @@ class LightParty(Party):
                 for message, member in party.joins.items():
                     if member == target:
                         del party.joins[message]
-                        await party.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, target)
+                        await party.message.remove_reaction(ROBIN_GUILD.RECRUITING_EMOJI, target)
                         if self == party:
                             await message.edit(f'-# @everyone {member.display_name} からの加入申請', view=DummyApproveView())
                         else:
@@ -172,7 +172,7 @@ class LightParty(Party):
             removeMembers = {member for member in target.joins.values()}
             target.joins.clear()
             for removeMember in removeMembers:
-                await target.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, removeMember)
+                await target.message.remove_reaction(ROBIN_GUILD.RECRUITING_EMOJI, removeMember)
             return True
         else: return False
 
@@ -183,17 +183,17 @@ class LightParty(Party):
         if not isinstance(participant, Guest) and participant.user in map(lambda x:x.user, self.members): return False
         self.addMember(participant)
         if self.thread is None: return True
-        print(f'PartyNumber:{self.number} JoinMember:{participant.display_name} PartyMemberNumber:{self.membersNum()} Aliance:{self.aliance}')
+        print(f'PartyNumber:{self.number} JoinMember:{participant.display_name} PartyMemberNumber:{self.membersNum()} Alliance:{self.alliance}')
         if isinstance(participant, Participant): # メンバならスレッドに入れる
             await self.thread.add_user(participant.user)
             # ジョインリストから削除
             # for message, member in self.joins.items():
             #     if member == participant.user: del self.joins[message]
         await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
-        await self.alianceCheck(ROBIN_GUILD.parties)
+        await self.allianceCheck(ROBIN_GUILD.parties)
         if self.membersNum() >= 4: # 4人パーティ検知
             await self.removeJoinRequest(self) # 4人になったのでパーティに来ているリクエストを全削除
-            await self.message.clear_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
+            await self.message.clear_reaction(ROBIN_GUILD.RECRUITING_EMOJI)
             for party in ROBIN_GUILD.parties:
                 if not isinstance(party, LightParty): continue
                 if party.membersNum() != 4: break
@@ -209,11 +209,11 @@ class LightParty(Party):
                 self.members.remove(participant)
                 print(f'PartyNum: {self.number} RemoveMember: {member.display_name}')
                 await self.thread.send(f'{member.display_name} が離脱\n{self.getPartyMessage(ROBIN_GUILD.ROLES)}')
-                if self.aliance and self.membersNum() < 4:
-                    await self.leaveAlianceParty()
+                if self.alliance and self.membersNum() < 4:
+                    await self.leaveAllianceParty()
                 await self.thread.starting_message.edit(self.getPartyMessage(ROBIN_GUILD.ROLES))
                 if self.membersNum() < 4:
-                    await self.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
+                    await self.message.add_reaction(ROBIN_GUILD.RECRUITING_EMOJI)
                 return True
         return False
 
@@ -299,15 +299,15 @@ class Guild:
         self.COMMAND_CH:discord.TextChannel = None # コマンドチャンネル
         self.COMMAND_MSG:discord.Message = None # コマンドメッセージ
         self.PARTY_LOG:discord.TextChannel = None # パーティログチャンネル
-        self.RECLUIT_LOG_CH:discord.TextChannel = None # 募集ログチャンネル
+        self.RECRUIT_LOG_CH:discord.TextChannel = None # 募集ログチャンネル
 
-        self.reclutingMessage:discord.Message = None # 募集メッセージ
+        self.recruitingMessage:discord.Message = None # 募集メッセージ
         self.parties:list[SpeedParty|LightParty]|None = None # パーティ一覧
         self.timeTable:list[dt] = [] # 防衛軍タイムテーブル
         # self.timeTableThread:ThreadPoolExecutor = None # タイムテーブルスレッド
 
         # リアクション
-        self.RECLUTING_EMOJI:discord.Emoji = None # 参加リアクション
+        self.RECRUITING_EMOJI:discord.Emoji = None # 参加リアクション
         self.FULLPARTY_EMOJI:discord.Emoji = None
         self.LIGHTPARTY_EMOJI:discord.Emoji = None
         self.MEMBER_ROLE:discord.Role = None
@@ -317,12 +317,12 @@ class Guild:
         self.LITE_PARTY_ROLE:discord.Role = None # ライトパーティロール
         
         self.ROLES:dict[discord.Role, RoleInfo] = None
-        self.RECLUTING_MEMBER:list[discord.Member] = list() # 募集参加メンバ
+        self.RECRUITING_MEMBER:list[discord.Member] = list() # 募集参加メンバ
         # self.ROLES:dict[discord.Role, ]
 
         # self.formation:Formation = None # パーティ編成クラス
 
-        self.reclutingMessageItems:list[SendItem] = list() # 募集メッセージアイテムリスト
+        self.recruitingMessageItems:list[SendItem] = list() # 募集メッセージアイテムリスト
 
 #endregion
 
@@ -374,23 +374,23 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
 
     # message = await ROBIN_GUILD.PARTY_CH.fetch_message(reaction.message.id)
     now = dt.now()
-    print(f'{now} recive reaction add {user} {reaction.emoji.name}')
+    print(f'{now} receive reaction add {user} {reaction.emoji.name}')
 
     # 途中参加申請
     if ROBIN_GUILD.parties != None:
-        if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI: # 参加絵文字(メッセージ判定は後)
+        if reaction.emoji == ROBIN_GUILD.RECRUITING_EMOJI: # 参加絵文字(メッセージ判定は後)
             # 参加権チェック
             if not (await checkRoleRight(user, reaction.message.channel, {ROBIN_GUILD.MEMBER_ROLE}, '参加権がありません') and
                 await checkRoleRight(user, reaction.message.channel, set(ROBIN_GUILD.ROLES.keys()), 'ロールが設定されていません')):
                 await reaction.message.remove_reaction(reaction.emoji, user)
                 return
             # 途中自動参加
-            if reaction.message == ROBIN_GUILD.reclutingMessage:
+            if reaction.message == ROBIN_GUILD.recruitingMessage:
                 # パーティメンバでなければ自動参加
                 if not any(map(lambda party:party.isMember(user), ROBIN_GUILD.parties)):
                     await autoJoinParticipant(user)
             # パーティメッセージ
-            elif reaction.message in map(lambda x:x.message, ROBIN_GUILD.parties) and reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
+            elif reaction.message in map(lambda x:x.message, ROBIN_GUILD.parties) and reaction.emoji == ROBIN_GUILD.RECRUITING_EMOJI:
                 # 通常参加申請
                 party:LightParty = searchLightParty(reaction.message, ROBIN_GUILD.parties)
                 await party.joinRequest(user)
@@ -398,21 +398,21 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
     elif (ROBIN_GUILD.timeTable[0] - delta(minutes=30) <= now and
           now < ROBIN_GUILD.timeTable[0] - delta(minutes=10)): # パーティ編成前
         # リアクション判定 参加リアクションを募集メッセージ
-        if (reaction.message == ROBIN_GUILD.reclutingMessage and
-            reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI):
+        if (reaction.message == ROBIN_GUILD.recruitingMessage and
+            reaction.emoji == ROBIN_GUILD.RECRUITING_EMOJI):
             # 参加権チェック
             if not (await checkRoleRight(user, reaction.message.channel, {ROBIN_GUILD.MEMBER_ROLE}, '参加権がありません') and \
                 await checkRoleRight(user, reaction.message.channel, set(ROBIN_GUILD.ROLES.keys()), 'ロールが設定されていません')):
                 await reaction.message.remove_reaction(reaction.emoji, user)
                 return
-            if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
-                ROBIN_GUILD.RECLUTING_MEMBER.append(user)
-                await reaction.message.edit(recluitMessageReplace(ROBIN_GUILD.reclutingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER)))
+            if reaction.emoji == ROBIN_GUILD.RECRUITING_EMOJI:
+                ROBIN_GUILD.RECRUITING_MEMBER.append(user)
+                await reaction.message.edit(recruitMessageReplace(ROBIN_GUILD.recruitingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECRUITING_MEMBER)))
                 sendMessage = dt.now().strftime('[%y-%m-%d %H:%M:%S.%f]') + f' :green_square: {user.display_name} '
                 sendMessage += str(ROBIN_GUILD.LIGHTPARTY_EMOJI) if ROBIN_GUILD.LITE_PARTY_ROLE in user.roles else ''
                 for role in filter(lambda r:r in ROBIN_GUILD.ROLES.keys(), user.roles):
                     sendMessage += str(ROBIN_GUILD.ROLES[role].emoji)
-                await ROBIN_GUILD.RECLUIT_LOG_CH.send(sendMessage)
+                await ROBIN_GUILD.RECRUIT_LOG_CH.send(sendMessage)
 
 ##############################################################################################
 ## 
@@ -437,10 +437,10 @@ async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|disc
     if ROBIN_GUILD.MEMBER_ROLE not in user.roles: return
 
     now = dt.now()
-    print(f'{now} recive reaction remove {user} {reaction.emoji.name}')
+    print(f'{now} receive reaction remove {user} {reaction.emoji.name}')
 
-    # if reaction.message == ROBIN_GUILD.reclutingMessage: # 募集メッセージ判定
-    #     if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
+    # if reaction.message == ROBIN_GUILD.recruitingMessage: # 募集メッセージ判定
+    #     if reaction.emoji == ROBIN_GUILD.RECRUITING_EMOJI:
     #         ROBIN_GUILD.formation.rmMember(user)
     #         return
     
@@ -449,7 +449,7 @@ async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|disc
         # リアクション・メッセージ判定
         # リアクションはパーティのどれかに該当
         if (reaction.message in map(lambda x:x.message, ROBIN_GUILD.parties) and
-            reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI):
+            reaction.emoji == ROBIN_GUILD.RECRUITING_EMOJI):
             party:LightParty = searchLightParty(reaction.message, ROBIN_GUILD.parties)
             for delMessage, member in party.joins.items():
                 # partyのjoinsにあるなら削除と通知
@@ -461,16 +461,16 @@ async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|disc
     elif (ROBIN_GUILD.timeTable[0] - delta(minutes=30) <= now and
           now < ROBIN_GUILD.timeTable[0] - delta(minutes=10)): # パーティ編成前
         # リアクション・メッセージ判定
-        if (reaction.message == ROBIN_GUILD.reclutingMessage and
-            reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI):
+        if (reaction.message == ROBIN_GUILD.recruitingMessage and
+            reaction.emoji == ROBIN_GUILD.RECRUITING_EMOJI):
             # 参加プールにいる場合辞退処理
-            if user in ROBIN_GUILD.RECLUTING_MEMBER:
-                ROBIN_GUILD.RECLUTING_MEMBER.remove(user)
-                await reaction.message.edit(recluitMessageReplace(ROBIN_GUILD.reclutingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER)))
+            if user in ROBIN_GUILD.RECRUITING_MEMBER:
+                ROBIN_GUILD.RECRUITING_MEMBER.remove(user)
+                await reaction.message.edit(recruitMessageReplace(ROBIN_GUILD.recruitingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECRUITING_MEMBER)))
             sendMessage = now.strftime('[%y-%m-%d %H:%M:%S.%f]') + f' :red_square: {user.display_name} '
             for role in filter(lambda r:r in ROBIN_GUILD.ROLES.keys(), user.roles):
                 sendMessage += str(ROBIN_GUILD.ROLES[role].emoji)
-            await ROBIN_GUILD.RECLUIT_LOG_CH.send(sendMessage)
+            await ROBIN_GUILD.RECRUIT_LOG_CH.send(sendMessage)
 
 #endregion
 ##############################################################################################
@@ -507,32 +507,33 @@ async def loop():
     # 募集開始
     if now == ROBIN_GUILD.timeTable[0] - delta(minutes=30):
         # パーティ編成クラスをインスタンス化，メッセージ送信
-        print(f'################### {dt.now()} Recluting ###################')
-        ROBIN_GUILD.RECLUTING_MEMBER.clear()
+        print(f'################### {dt.now()} Recruiting ###################')
+        ROBIN_GUILD.RECRUITING_MEMBER.clear()
+        # 既存の募集文フォルダ名 recluitingMessage は互換性のため維持。
         sendItems = getDirectoryItems(f'guilds/{ROBIN_GUILD.GUILD.id}/recluitingMessage')
         for index, sendItem in enumerate(sendItems):
             if index - len(sendItems) + 1 == 0:
                 # 最後のメッセージ
-                ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.send(
-                    content=recluitMessageReplace(sendItem.text, ROBIN_GUILD.timeTable[0]),
+                ROBIN_GUILD.recruitingMessage = await ROBIN_GUILD.PARTY_CH.send(
+                    content=recruitMessageReplace(sendItem.text, ROBIN_GUILD.timeTable[0]),
                     files=sendItem.imgs
                     )
             else:
                 await ROBIN_GUILD.PARTY_CH.send(
-                    content=recluitMessageReplace(sendItem.text, ROBIN_GUILD.timeTable[0]),
+                    content=recruitMessageReplace(sendItem.text, ROBIN_GUILD.timeTable[0]),
                     files=sendItem.imgs)
-        await ROBIN_GUILD.reclutingMessage.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI) # 参加リアクション追加
-        # await ROBIN_GUILD.reclutingMessage.add_reaction(ROBIN_GUILD.LIGHTPARTY_EMOJI) # ライトパーティリアクション追加
-        # await ROBIN_GUILD.reclutingMessage.add_reaction(ROBIN_GUILD.FULLPARTY_EMOJI) # フルパーティリアクション追加
+        await ROBIN_GUILD.recruitingMessage.add_reaction(ROBIN_GUILD.RECRUITING_EMOJI) # 参加リアクション追加
+        # await ROBIN_GUILD.recruitingMessage.add_reaction(ROBIN_GUILD.LIGHTPARTY_EMOJI) # ライトパーティリアクション追加
+        # await ROBIN_GUILD.recruitingMessage.add_reaction(ROBIN_GUILD.FULLPARTY_EMOJI) # フルパーティリアクション追加
         await client.change_presence(activity=discord.CustomActivity(name=ROBIN_GUILD.timeTable[0].strftime("Formation:%H時")))
         
         # try: # 250611 個別表示テスト
-        #     await ROBIN_GUILD.DEV_CH.send('個別表示テスト\n表示テストのみで編成等に影響しません', view=RecluteView(timeout=1800, disable_on_timeout=False))
+        #     await ROBIN_GUILD.DEV_CH.send('個別表示テスト\n表示テストのみで編成等に影響しません', view=RecruitView(timeout=1800, disable_on_timeout=False))
         # except Exception as e:
         #     printTraceback(e)
     
     elif now == ROBIN_GUILD.timeTable[0] - delta(minutes=15):
-        await ROBIN_GUILD.PARTY_CH.send(f'パーティ編成まで残り5分 {ROBIN_GUILD.reclutingMessage.jump_url}')
+        await ROBIN_GUILD.PARTY_CH.send(f'パーティ編成まで残り5分 {ROBIN_GUILD.recruitingMessage.jump_url}')
 
     ######################################################
     # パーティ編成をアナウンス
@@ -544,19 +545,19 @@ async def loop():
             ROBIN_GUILD.parties = list()
             # 値取得
             await ROBIN_GUILD.GUILD.chunk()
-            ROBIN_GUILD.reclutingMessage = await ROBIN_GUILD.PARTY_CH.fetch_message(ROBIN_GUILD.reclutingMessage.id)
+            ROBIN_GUILD.recruitingMessage = await ROBIN_GUILD.PARTY_CH.fetch_message(ROBIN_GUILD.recruitingMessage.id)
             try:
                 participants:list[Participant] = list(
                     map(
                         lambda user:Participant(user, {role for role in user.roles if role in ROBIN_GUILD.ROLES.keys()}),
-                        ROBIN_GUILD.RECLUTING_MEMBER
+                        ROBIN_GUILD.RECRUITING_MEMBER
                         )
                     )
             except Exception as e:
                 printTraceback(e)
                 participants = []
-            for reaction in ROBIN_GUILD.reclutingMessage.reactions:
-                if reaction.emoji == ROBIN_GUILD.RECLUTING_EMOJI:
+            for reaction in ROBIN_GUILD.recruitingMessage.reactions:
+                if reaction.emoji == ROBIN_GUILD.RECRUITING_EMOJI:
                     async for user in reaction.users():
                         if user == client.user: continue
                         if ROBIN_GUILD.MEMBER_ROLE not in user.roles: continue
@@ -611,20 +612,20 @@ async def loop():
             elif isinstance(party, LightParty):
                 party.thread = await party.message.create_thread(name=f'LiteParty:{party.number}', auto_archive_duration=60)
                 if party.membersNum() < 4: # 4人以下の時はリアクション
-                    await party.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
+                    await party.message.add_reaction(ROBIN_GUILD.RECRUITING_EMOJI)
                 party.threadControlMessage = await party.thread.send(
                     view=PartyView(duration=((ROBIN_GUILD.timeTable[0] + delta(hours=1)) - dt.now()).total_seconds()))
-                if party.aliance:
+                if party.alliance:
                     try:
-                        await party.sendAlianceInfo()
+                        await party.sendAllianceInfo()
                     except Exception as e:
                         printTraceback(e)
         print(f'{dt.now()} Create Threads END')
         try: # パーティ同盟チェック
             for party in ROBIN_GUILD.parties:
                 if isinstance(party, LightParty):
-                    await party.alianceCheck(ROBIN_GUILD.parties)
-                    if party.aliance:
+                    await party.allianceCheck(ROBIN_GUILD.parties)
+                    if party.alliance:
                         await party.message.edit(party.getPartyMessage(ROBIN_GUILD.ROLES))
         except Exception as e:
             printTraceback(e)
@@ -682,11 +683,11 @@ async def loop():
             except Exception: pass
             printTraceback(e)
 
-        ROBIN_GUILD.RECLUTING_MEMBER.clear()
+        ROBIN_GUILD.RECRUITING_MEMBER.clear()
 
         print('#==================================================================#')
 
-        # ROBIN_GUILD.reclutingMessage = None
+        # ROBIN_GUILD.recruitingMessage = None
 
     ######################################################
     # 0分前 タイムテーブル更新
@@ -695,7 +696,7 @@ async def loop():
     ######################################################
     # 1時間後 周回終わり
     elif now == ROBIN_GUILD.timeTable[0] + delta(minutes=60):
-        global rebootScadule
+        global rebootSchedule
 
         try:
             memberSum = 0
@@ -715,15 +716,15 @@ async def loop():
         msg += ROBIN_GUILD.timeTable[2].strftime('%H時 > [...](<https://hiroba.dqx.jp/sc/tokoyami/>)')
         await ROBIN_GUILD.PARTY_CH.send(msg)
 
-        if rebootScadule:
-            try: await rebootScadule.send('再起動します')
+        if rebootSchedule:
+            try: await rebootSchedule.send('再起動します')
             except Exception as e:
                 printTraceback(e)
             await f_reboot()
         
         await client.change_presence(activity=discord.CustomActivity(name=ROBIN_GUILD.timeTable[0].strftime("Next:%H時")))
         ROBIN_GUILD.parties = None
-        ROBIN_GUILD.reclutingMessage = None
+        ROBIN_GUILD.recruitingMessage = None
         
     # if (now + delta(minutes=1)).month == now.month + 1: # 1分後が来月 -> 明日が1日の23:59
     #     members = joinLeaveMembers(ROBIN_GUILD.GUILD, 3, ROBIN_GUILD.GUILD.get_role(1246989946263306302))
@@ -776,6 +777,7 @@ def markdownEsc(line:str):
 
 def joinLeaveMembers(guild:discord.Guild, month:delta, exclusionRole:discord.Role|None=None):
     leaveMembers:set[discord.Member] = set(guild.members)
+    # 既存のログフォルダ名 reclutionLog は互換性のため維持。
     with open(f'reclutionLog/{guild.name}.csv') as f:
         lines = f.readlines()
     for line in lines[-1::-1]:
@@ -826,7 +828,7 @@ def replaces(msg:str, replaceChars:dict[str,str]) -> str:
         msg = msg.replace(key, value)
     return msg
 
-def recluitMessageReplace(msg:str, time:dt, count:int=0) -> str:
+def recruitMessageReplace(msg:str, time:dt, count:int=0) -> str:
     replaceChars = {
         '{hour}': time.strftime('%H'),
         '{count}': str(count)
@@ -980,7 +982,7 @@ class ApproveView(discord.ui.View):
         party = searchLightParty(self.message.channel, ROBIN_GUILD.parties)
         if party is None: return
         requestMember = party.joins[self.message]
-        await self.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, party.message)
+        await self.message.remove_reaction(ROBIN_GUILD.RECRUITING_EMOJI, party.message)
         await ROBIN_GUILD.PARTY_CH.send(f'{requestMember.mention} パーティ{party.number}の参加申請がタイムアウト', delete_after=30)
         self.disable_all_items()
         await self.message.edit(view=self)
@@ -1017,7 +1019,7 @@ class ApproveView(discord.ui.View):
                         break
                 await party.removeJoinRequest(joinMember) # メンバのリクエストを全パーティから削除
                 await party.joinMember(Participant(joinMember, set(role for role in joinMember.roles if role in ROBIN_GUILD.ROLES.keys())))
-                # await thread.starting_message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, joinMember) # リアクション処理
+                # await thread.starting_message.remove_reaction(ROBIN_GUILD.RECRUITING_EMOJI, joinMember) # リアクション処理
                 await interaction.message.edit(view=DummyApproveView())
             else:
                 print('パーティメンバ以外による承認')
@@ -1169,7 +1171,7 @@ async def createNewParty(user:discord.Member, free:bool=False):
     newParty.message = await ROBIN_GUILD.PARTY_CH.send(newParty.getPartyMessage(ROBIN_GUILD.ROLES))
     newParty.thread = await newParty.message.create_thread(name=f'Party:{newParty.number}', auto_archive_duration=60)
     newParty.threadControlMessage = await newParty.thread.send(view=PartyView(duration=((ROBIN_GUILD.timeTable[0] + delta(hours=1)) - dt.now()).total_seconds()))
-    await newParty.message.add_reaction(ROBIN_GUILD.RECLUTING_EMOJI)
+    await newParty.message.add_reaction(ROBIN_GUILD.RECRUITING_EMOJI)
     ROBIN_GUILD.parties.append(newParty)
 
 class RecruitView(discord.ui.View):
@@ -1198,58 +1200,58 @@ class RecruitView(discord.ui.View):
         return True
 
     @discord.ui.button(label='参加 [beta]', style=discord.ButtonStyle.green)
-    async def joinReclute(self, button:discord.ui.Button, interaction:discord.Interaction):
+    async def joinRecruit(self, button:discord.ui.Button, interaction:discord.Interaction):
         now = dt.now()
         # 未参加であれば追加
-        if interaction.user in ROBIN_GUILD.RECLUTING_MEMBER:
+        if interaction.user in ROBIN_GUILD.RECRUITING_MEMBER:
             # 既に参加している
             print(f'{now} Recruit button from {interaction.user.display_name} but already joined')
             await interaction.response.send_message(
-                f'参加済です\nテスト中ですので、編成に失敗する恐れがあります。\n念のために{ROBIN_GUILD.RECLUTING_EMOJI}リアクションもしておくと確実です。',
+                f'参加済です\nテスト中ですので、編成に失敗する恐れがあります。\n念のために{ROBIN_GUILD.RECRUITING_EMOJI}リアクションもしておくと確実です。',
                 ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 600.)
         else:
             print(f'{now} Recruit button from {interaction.user.display_name}')
-            ROBIN_GUILD.RECLUTING_MEMBER.append(interaction.user)
+            ROBIN_GUILD.RECRUITING_MEMBER.append(interaction.user)
             await interaction.response.send_message(
-                f'参加を受け付けました\nテスト中ですので、編成に失敗する恐れがあります。\n念のために{ROBIN_GUILD.RECLUTING_EMOJI}リアクションもしておくと確実です。',
+                f'参加を受け付けました\nテスト中ですので、編成に失敗する恐れがあります。\n念のために{ROBIN_GUILD.RECRUITING_EMOJI}リアクションもしておくと確実です。',
                 ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 600.)
             sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :green_square: {interaction.user.display_name}\n現在の参加者:'
-            await interaction.message.edit(recluitMessageReplace(self.msg, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER)))
-            for member in ROBIN_GUILD.RECLUTING_MEMBER:
+            await interaction.message.edit(recruitMessageReplace(self.msg, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECRUITING_MEMBER)))
+            for member in ROBIN_GUILD.RECRUITING_MEMBER:
                 sendMessage += f' {member.display_name}'
-            await ROBIN_GUILD.RECLUIT_LOG_CH.send(sendMessage)
+            await ROBIN_GUILD.RECRUIT_LOG_CH.send(sendMessage)
 
     @discord.ui.button(label='辞退 [beta]', style=discord.ButtonStyle.red)
-    async def leaveReclute(self, button:discord.ui.Button, interaction:discord.Interaction):
+    async def leaveRecruit(self, button:discord.ui.Button, interaction:discord.Interaction):
         # 既に参加しているなら削除
         now = dt.now()
-        if interaction.user in ROBIN_GUILD.RECLUTING_MEMBER:
-            print(f'{now} Reclute leave button from {interaction.user.display_name}')
-            ROBIN_GUILD.RECLUTING_MEMBER.remove(interaction.user)
+        if interaction.user in ROBIN_GUILD.RECRUITING_MEMBER:
+            print(f'{now} Recruit leave button from {interaction.user.display_name}')
+            ROBIN_GUILD.RECRUITING_MEMBER.remove(interaction.user)
             await interaction.response.send_message('辞退を受け付けました', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 600.)
-            await interaction.message.edit(recluitMessageReplace(self.msg, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECLUTING_MEMBER)))
-            await interaction.message.remove_reaction(ROBIN_GUILD.RECLUTING_EMOJI, interaction.user)
+            await interaction.message.edit(recruitMessageReplace(self.msg, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECRUITING_MEMBER)))
+            await interaction.message.remove_reaction(ROBIN_GUILD.RECRUITING_EMOJI, interaction.user)
             sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :red_square: {interaction.user.display_name}\n現在の参加者:'
             # 更新メッセージ
-            for member in ROBIN_GUILD.RECLUTING_MEMBER:
+            for member in ROBIN_GUILD.RECRUITING_MEMBER:
                 sendMessage += f' {member.display_name}'
-            await ROBIN_GUILD.RECLUIT_LOG_CH.send(sendMessage)
+            await ROBIN_GUILD.RECRUIT_LOG_CH.send(sendMessage)
 
         else:
-            print(f'{now} Reclute leave button from {interaction.user.display_name} but not joined')
+            print(f'{now} Recruit leave button from {interaction.user.display_name} but not joined')
             await interaction.response.send_message('辞退済です', ephemeral=True, delete_after=(ROBIN_GUILD.timeTable[0] - now).total_seconds() - 600.)
 
 class RebootView(discord.ui.View):
     def __init__(self, *items, timeout=None, disable_on_timeout=True):
         super().__init__(*items, timeout=timeout, disable_on_timeout = disable_on_timeout)
     @discord.ui.button(label='次の周回終了で再起動', style=discord.ButtonStyle.green)
-    async def scaduleReboot(self, button:discord.ui.Button, interaction:discord.Interaction):
-        global rebootScadule
+    async def scheduleReboot(self, button:discord.ui.Button, interaction:discord.Interaction):
+        global rebootSchedule
         try:
-            rebootScadule = interaction.channel
+            rebootSchedule = interaction.channel
         except Exception as e:
             printTraceback(e)
-            rebootScadule = True
+            rebootSchedule = True
         self.disable_all_items()
         print(f'{dt.now()} 再起動スケジュールが設定されました')
         await interaction.response.edit_message(view=self)
@@ -1304,7 +1306,7 @@ def equalEmoji(emoji1: discord.partial_emoji.PartialEmoji | discord.Emoji | str,
 ##############################################################################################
 #region スラッシュコマンド
 @client.slash_command(name='f-formation', description='タイムテーブルの割り込み')
-async def f_reclute(ctx:discord.ApplicationContext):
+async def f_recruit(ctx:discord.ApplicationContext):
     if ctx.guild == None:
         await ctx.respond('目的のサーバー内でコマンドしてください')
         return
@@ -1404,7 +1406,7 @@ async def f_stableReboot(ctx:discord.ApplicationContext|None = None):
     exit()
 
 @client.slash_command(name='f-fetch', description='ギルド情報再取得')
-async def f_fetch_commanc(ctx:discord.ApplicationContext):
+async def f_fetch_command(ctx:discord.ApplicationContext):
     print(f'{dt.now()} slash command fetch from {ctx.interaction.user}')
     await f_fetch()
     await ctx.respond('ギルド情報を再取得しました')
@@ -1424,12 +1426,14 @@ async def f_fetch():
         ROBIN_GUILD.PARTY_LOG     = client.get_channel(guildInfo['channels']['party-log'])
         ROBIN_GUILD.DEV_CH        = client.get_channel(guildInfo['channels']['develop'])
         ROBIN_GUILD.COMMAND_CH    = client.get_channel(guildInfo['channels']['command'])
-        ROBIN_GUILD.RECLUIT_LOG_CH = client.get_channel(guildInfo['channels']['recluit-log'])
+        # IDs.json の既存キー recluit-log / recluting は互換性のため維持。
+        ROBIN_GUILD.RECRUIT_LOG_CH = client.get_channel(guildInfo['channels']['recluit-log'])
 
-        ROBIN_GUILD.reclutingMessageItems = getDirectoryItems(f'guilds/{ROBIN_GUILD.GUILD.id}/recluitingMessage')
+        # 既存の募集文フォルダ名 recluitingMessage は互換性のため維持。
+        ROBIN_GUILD.recruitingMessageItems = getDirectoryItems(f'guilds/{ROBIN_GUILD.GUILD.id}/recluitingMessage')
         
         # 絵文字ゲット
-        ROBIN_GUILD.RECLUTING_EMOJI =  client.get_emoji(guildInfo['emojis']['recluting'])
+        ROBIN_GUILD.RECRUITING_EMOJI =  client.get_emoji(guildInfo['emojis']['recluting'])
         ROBIN_GUILD.FULLPARTY_EMOJI =  client.get_emoji(guildInfo['emojis']['fullparty'])
         ROBIN_GUILD.LIGHTPARTY_EMOJI = client.get_emoji(guildInfo['emojis']['lightparty'])
 
@@ -1454,8 +1458,8 @@ async def f_fetch():
         print(f'ROBIN_GUILD.PARTY_CH_beta: {ROBIN_GUILD.PARTY_CH_beta.name}: {ROBIN_GUILD.PARTY_CH_beta.id}')
         print(f'ROBIN_GUILD.DEV_CH: {ROBIN_GUILD.DEV_CH.name}: {ROBIN_GUILD.DEV_CH.id}')
         print(f'ROBIN_GUILD.COMMAND_CH: {ROBIN_GUILD.COMMAND_CH.name}: {ROBIN_GUILD.COMMAND_CH.id}')
-        print(f'ROBIN_GUILD.RECLUIT_LOG_CH: {ROBIN_GUILD.RECLUIT_LOG_CH.name}: {ROBIN_GUILD.RECLUIT_LOG_CH.id}')
-        print(f'ROBIN_GUILD.RECLUTING_EMOJI: {ROBIN_GUILD.RECLUTING_EMOJI.name}: {ROBIN_GUILD.RECLUTING_EMOJI.id}')
+        print(f'ROBIN_GUILD.RECRUIT_LOG_CH: {ROBIN_GUILD.RECRUIT_LOG_CH.name}: {ROBIN_GUILD.RECRUIT_LOG_CH.id}')
+        print(f'ROBIN_GUILD.RECRUITING_EMOJI: {ROBIN_GUILD.RECRUITING_EMOJI.name}: {ROBIN_GUILD.RECRUITING_EMOJI.id}')
         print(f'ROBIN_GUILD.FULLPARTY_EMOJI: {ROBIN_GUILD.FULLPARTY_EMOJI.name}: {ROBIN_GUILD.FULLPARTY_EMOJI.id}')
         print(f'ROBIN_GUILD.LIGHTPARTY_EMOJI: {ROBIN_GUILD.LIGHTPARTY_EMOJI.name}: {ROBIN_GUILD.LIGHTPARTY_EMOJI.id}')
         print(f'ROBIN_GUILD.MEMBER_ROLE: {ROBIN_GUILD.MEMBER_ROLE.name}: {ROBIN_GUILD.MEMBER_ROLE.id}')
