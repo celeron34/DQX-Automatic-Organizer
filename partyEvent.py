@@ -78,7 +78,7 @@ class PartyEvent:
                 participants:dict[Member,set[Role]] = dict()
                 for member in self.members:
                     participants[member] = set(role for role in self.speedPartyFormation.keys() if role in member.roles)
-                speedPartiesMember = speedFormation(participants, self.speedPartyFormation)
+                speedPartiesMember = speedFormation(participants, speedFormation)
                 if self.randomPartyLimit: randomPartiesMember:list[list[Member]] = randomFormation(participants, self.randomPartyLimit)
                 else: randomPartiesMember:list[list[Member]] = []
                 formationTimeEnd = dt.now()
