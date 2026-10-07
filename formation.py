@@ -135,7 +135,4 @@ def randomFormation(
         parties.append(members[offset:offset + size])
         offset += size
 
-    for member in members:
-        participants.pop(member, None)
-
     return parties
