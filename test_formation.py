@@ -120,7 +120,7 @@ class FormationTests(unittest.TestCase):
         roles = tuple(formation)
         rng = random.Random(20261008)
 
-        for case in range(2000):
+        for case in range(10000):
             count = rng.randint(0, 20)
             source = {}
             for member in range(count):
