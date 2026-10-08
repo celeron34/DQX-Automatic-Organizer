@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import discord
 
-from party import LightParty, RoleInfo, SpeedParty
+from party import RoleInfo
+from event_definition import EventDefinition, EventInstance
 
 
 class Guild:
@@ -22,9 +24,10 @@ class Guild:
         self.PARTY_LOG:discord.TextChannel = None # パーティログチャンネル
         self.RECRUIT_LOG_CH:discord.TextChannel = None # 募集ログチャンネル
 
-        self.recruitingMessage:discord.Message = None # 募集メッセージ
-        self.parties:list[SpeedParty|LightParty]|None = None # パーティ一覧
         self.timeTable:list[dt] = [] # 防衛軍タイムテーブル
+        self.events:list[EventInstance] = [] # 進行中または今後予定されているイベント
+        self.timetable_lock = asyncio.Lock() # 複数イベントが同じ分に終了する際の更新保護
+        self.reboot_handled = False
         # self.timeTableThread:ThreadPoolExecutor = None # タイムテーブルスレッド
 
         # リアクション
@@ -38,9 +41,28 @@ class Guild:
         self.LITE_PARTY_ROLE:discord.Role = None # ライトパーティロール
 
         self.ROLES:dict[discord.Role, RoleInfo] = None
-        self.RECRUITING_MEMBER:list[discord.Member] = list() # 募集参加メンバ
         # self.ROLES:dict[discord.Role, ]
 
         # self.formation:Formation = None # パーティ編成クラス
 
         self.recruitingMessageItems:list[Any] = list() # 募集メッセージアイテムリスト
+
+    def sync_events(self, starts_at_list):
+        """Reconcile scraped start times while preserving live state per event."""
+        existing = {event.starts_at: event for event in self.events}
+        starts_at_list = list(dict.fromkeys(starts_at_list))
+        # A timetable refresh can omit an event whose recruitment or party
+        # lifecycle has already started. Keep those instances until FINISH.
+        live_events = [
+            event for event in self.events
+            if event.recruiting_message is not None or event.parties is not None
+        ]
+        for event in live_events:
+            if event.starts_at not in starts_at_list:
+                starts_at_list.append(event.starts_at)
+        self.events = [
+            existing.get(starts_at) or EventInstance(
+                EventDefinition(title="防衛軍", starts_at=starts_at)
+            )
+            for starts_at in starts_at_list
+        ]

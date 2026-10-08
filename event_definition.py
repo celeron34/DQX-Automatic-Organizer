@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
+from typing import Any
 
 
 class EventPhase(Enum):
-    """A phase boundary in the existing single-event schedule."""
+    """A phase boundary shared by every event instance."""
 
     RECRUITING = "recruiting"
     REMINDER = "reminder"
@@ -62,3 +63,27 @@ class EventDefinition:
             self.description = description
         if recruitment_text is not None:
             self.recruitment_text = recruitment_text
+
+
+@dataclass
+class EventInstance:
+    """Mutable, independent runtime state for one scheduled event."""
+
+    definition: EventDefinition
+    recruiting_members: list[Any] = field(default_factory=list)
+    parties: list[Any] | None = None
+    recruiting_message: Any = None
+    processed_phases: set[EventPhase] = field(default_factory=set)
+
+    @property
+    def starts_at(self) -> datetime:
+        if self.definition.starts_at is None:
+            raise ValueError("An event instance needs a start time")
+        return self.definition.starts_at
+
+    def claim_phase(self, phase: EventPhase) -> bool:
+        """Ensure a phase is processed at most once by the minute loop."""
+        if phase in self.processed_phases:
+            return False
+        self.processed_phases.add(phase)
+        return True

@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timedelta
 
-from event_definition import EventDefinition, EventPhase
+from event_definition import EventDefinition, EventInstance, EventPhase
 
 
 class EventDefinitionTests(unittest.TestCase):
@@ -31,8 +31,21 @@ class EventDefinitionTests(unittest.TestCase):
             with self.subTest(minute_offset=minute_offset):
                 now = starts_at + timedelta(minutes=minute_offset)
                 self.assertIs(EventPhase.at(now, starts_at), phase)
-
         self.assertIsNone(EventPhase.at(starts_at + timedelta(minutes=1), starts_at))
+
+    def test_event_instances_keep_independent_runtime_state(self):
+        first = EventInstance(EventDefinition(title="first", starts_at=datetime(2026, 10, 7, 12)))
+        second = EventInstance(EventDefinition(title="second", starts_at=datetime(2026, 10, 7, 13)))
+        first.recruiting_members.append("alice")
+        first.parties = ["party"]
+        first.recruiting_message = "message"
+
+        self.assertEqual(second.recruiting_members, [])
+        self.assertIsNone(second.parties)
+        self.assertIsNone(second.recruiting_message)
+        self.assertTrue(first.claim_phase(EventPhase.RECRUITING))
+        self.assertFalse(first.claim_phase(EventPhase.RECRUITING))
+        self.assertTrue(second.claim_phase(EventPhase.RECRUITING))
 
 
 if __name__ == "__main__":

@@ -28,7 +28,7 @@ from support_utils import (
     getDirectoryItems, markdownEsc, printTraceback, recruitMessageReplace,
     replaces, sendDirectory,
 )
-from event_definition import EventDefinition, EventPhase
+from event_definition import EventDefinition, EventInstance, EventPhase
 from commands import register_slash_commands
 from event_runner import EventRuntime, run_scheduled_event
 
@@ -69,6 +69,7 @@ async def on_ready():
     # タイムテーブルをゲット
     timeTable = await getTimetable(False)
     ROBIN_GUILD.timeTable = timeTable
+    ROBIN_GUILD.sync_events(timeTable)
     for t in ROBIN_GUILD.timeTable:
         print(t)
 
@@ -90,111 +91,79 @@ async def on_ready():
 #region リアクション追加検知
 @client.event
 async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord.User):
-    global ROBIN_GUILD
-    if user == client.user: return # 自信（ボット）のリアクションを無視
-    if not reaction.is_custom_emoji(): return # カスタム絵文字以外を無視
-
-    # message = await ROBIN_GUILD.PARTY_CH.fetch_message(reaction.message.id)
+    if user == client.user or not reaction.is_custom_emoji(): return
+    guild = ROBIN_GUILD
     now = dt.now()
     print(f'{now} receive reaction add {user} {reaction.emoji.name}')
+    event = find_event_for_message(reaction.message)
+    if event is None or reaction.emoji != guild.RECRUITING_EMOJI: return
+    if event.parties is not None:
+        if not (await checkRoleRight(user, reaction.message.channel, {guild.MEMBER_ROLE}, '参加権がありません') and
+                await checkRoleRight(user, reaction.message.channel, set(guild.ROLES.keys()), 'ロールが設定されていません')):
+            await reaction.message.remove_reaction(reaction.emoji, user)
+            return
+        if reaction.message == event.recruiting_message:
+            if not any(party.isMember(user) for party in event.parties):
+                await autoJoinParticipant(user, event)
+        elif reaction.message in map(lambda party: party.message, event.parties):
+            party = searchLightParty(reaction.message, event.parties)
+            if party is not None: await party.joinRequest(user)
+        return
+    if event.recruiting_message == reaction.message and event.starts_at - delta(minutes=30) <= now < event.starts_at - delta(minutes=10):
+        if not (await checkRoleRight(user, reaction.message.channel, {guild.MEMBER_ROLE}, '参加権がありません') and
+                await checkRoleRight(user, reaction.message.channel, set(guild.ROLES.keys()), 'ロールが設定されていません')):
+            await reaction.message.remove_reaction(reaction.emoji, user)
+            return
+        if user not in event.recruiting_members:
+            event.recruiting_members.append(user)
+            await reaction.message.edit(recruitMessageReplace(guild.recruitingMessageItems[-1].text, event.starts_at, len(event.recruiting_members)))
+        sendMessage = dt.now().strftime('[%y-%m-%d %H:%M:%S.%f]') + f' :green_square: {user.display_name} '
+        sendMessage += str(guild.LIGHTPARTY_EMOJI) if guild.LITE_PARTY_ROLE in user.roles else ''
+        for role in filter(lambda r:r in guild.ROLES.keys(), user.roles): sendMessage += str(guild.ROLES[role].emoji)
+        await guild.RECRUIT_LOG_CH.send(sendMessage)
 
-    # 途中参加申請
-    if ROBIN_GUILD.parties != None:
-        if reaction.emoji == ROBIN_GUILD.RECRUITING_EMOJI: # 参加絵文字(メッセージ判定は後)
-            # 参加権チェック
-            if not (await checkRoleRight(user, reaction.message.channel, {ROBIN_GUILD.MEMBER_ROLE}, '参加権がありません') and
-                await checkRoleRight(user, reaction.message.channel, set(ROBIN_GUILD.ROLES.keys()), 'ロールが設定されていません')):
-                await reaction.message.remove_reaction(reaction.emoji, user)
-                return
-            # 途中自動参加
-            if reaction.message == ROBIN_GUILD.recruitingMessage:
-                # パーティメンバでなければ自動参加
-                if not any(map(lambda party:party.isMember(user), ROBIN_GUILD.parties)):
-                    await autoJoinParticipant(user)
-            # パーティメッセージ
-            elif reaction.message in map(lambda x:x.message, ROBIN_GUILD.parties) and reaction.emoji == ROBIN_GUILD.RECRUITING_EMOJI:
-                # 通常参加申請
-                party:LightParty = searchLightParty(reaction.message, ROBIN_GUILD.parties)
-                await party.joinRequest(user)
-    # 通常参加申請
-    elif (ROBIN_GUILD.timeTable[0] - delta(minutes=30) <= now and
-          now < ROBIN_GUILD.timeTable[0] - delta(minutes=10)): # パーティ編成前
-        # リアクション判定 参加リアクションを募集メッセージ
-        if (reaction.message == ROBIN_GUILD.recruitingMessage and
-            reaction.emoji == ROBIN_GUILD.RECRUITING_EMOJI):
-            # 参加権チェック
-            if not (await checkRoleRight(user, reaction.message.channel, {ROBIN_GUILD.MEMBER_ROLE}, '参加権がありません') and \
-                await checkRoleRight(user, reaction.message.channel, set(ROBIN_GUILD.ROLES.keys()), 'ロールが設定されていません')):
-                await reaction.message.remove_reaction(reaction.emoji, user)
-                return
-            if reaction.emoji == ROBIN_GUILD.RECRUITING_EMOJI:
-                ROBIN_GUILD.RECRUITING_MEMBER.append(user)
-                await reaction.message.edit(recruitMessageReplace(ROBIN_GUILD.recruitingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECRUITING_MEMBER)))
-                sendMessage = dt.now().strftime('[%y-%m-%d %H:%M:%S.%f]') + f' :green_square: {user.display_name} '
-                sendMessage += str(ROBIN_GUILD.LIGHTPARTY_EMOJI) if ROBIN_GUILD.LITE_PARTY_ROLE in user.roles else ''
-                for role in filter(lambda r:r in ROBIN_GUILD.ROLES.keys(), user.roles):
-                    sendMessage += str(ROBIN_GUILD.ROLES[role].emoji)
-                await ROBIN_GUILD.RECRUIT_LOG_CH.send(sendMessage)
 
-##############################################################################################
-## 
+def find_event_for_message(message):
+    for event in ROBIN_GUILD.events:
+        if event.recruiting_message == message: return event
+        for party in event.parties or []:
+            if message in (party.message, getattr(party, 'threadControlMessage', None)):
+                return event
+    return None
+
+
 def searchLightParty(message:discord.Message, parties:list[Party]) -> LightParty|None:
     for party in parties:
         if isinstance(party, LightParty):
-            print(f'target message:{message.id} party.message:{party.message.id} party.threadControlMessage:{party.threadControlMessage.id}')
-            if message.id == party.message.id or message.id == party.threadControlMessage.id:
-                return party
+            if message.id == party.message.id or message.id == party.threadControlMessage.id: return party
     return None
 
-#endregion
 
-##############################################################################################
-##############################################################################################
-#region リアクション削除検知
 @client.event
 async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|discord.User):
-    global ROBIN_GUILD
-    if user == client.user: return # 自信（ボット）のリアクションを無視
-    if not reaction.is_custom_emoji(): return # カスタム絵文字以外を無視
-    if ROBIN_GUILD.MEMBER_ROLE not in user.roles: return
-
+    guild = ROBIN_GUILD
+    if user == client.user or not reaction.is_custom_emoji(): return
+    if guild.MEMBER_ROLE not in user.roles: return
     now = dt.now()
     print(f'{now} receive reaction remove {user} {reaction.emoji.name}')
-
-    # if reaction.message == ROBIN_GUILD.recruitingMessage: # 募集メッセージ判定
-    #     if reaction.emoji == ROBIN_GUILD.RECRUITING_EMOJI:
-    #         ROBIN_GUILD.formation.rmMember(user)
-    #         return
-    
-    # 参加申請取り消し
-    if ROBIN_GUILD.parties != None: # パーティズ変数が存在
-        # リアクション・メッセージ判定
-        # リアクションはパーティのどれかに該当
-        if (reaction.message in map(lambda x:x.message, ROBIN_GUILD.parties) and
-            reaction.emoji == ROBIN_GUILD.RECRUITING_EMOJI):
-            party:LightParty = searchLightParty(reaction.message, ROBIN_GUILD.parties)
-            for delMessage, member in party.joins.items():
-                # partyのjoinsにあるなら削除と通知
+    event = find_event_for_message(reaction.message)
+    if event is None or reaction.emoji != guild.RECRUITING_EMOJI: return
+    if event.parties is not None:
+        party = searchLightParty(reaction.message, event.parties)
+        if party is not None:
+            for delMessage, member in list(party.joins.items()):
                 if user == member:
                     del party.joins[delMessage]
                     await delMessage.edit(f'@everyone {member.display_name} が参加取り下げ', view=DummyApproveView())
                     break
-    # 初期編成参加申請取り消し
-    elif (ROBIN_GUILD.timeTable[0] - delta(minutes=30) <= now and
-          now < ROBIN_GUILD.timeTable[0] - delta(minutes=10)): # パーティ編成前
-        # リアクション・メッセージ判定
-        if (reaction.message == ROBIN_GUILD.recruitingMessage and
-            reaction.emoji == ROBIN_GUILD.RECRUITING_EMOJI):
-            # 参加プールにいる場合辞退処理
-            if user in ROBIN_GUILD.RECRUITING_MEMBER:
-                ROBIN_GUILD.RECRUITING_MEMBER.remove(user)
-                await reaction.message.edit(recruitMessageReplace(ROBIN_GUILD.recruitingMessageItems[-1].text, ROBIN_GUILD.timeTable[0], len(ROBIN_GUILD.RECRUITING_MEMBER)))
-            sendMessage = now.strftime('[%y-%m-%d %H:%M:%S.%f]') + f' :red_square: {user.display_name} '
-            for role in filter(lambda r:r in ROBIN_GUILD.ROLES.keys(), user.roles):
-                sendMessage += str(ROBIN_GUILD.ROLES[role].emoji)
-            await ROBIN_GUILD.RECRUIT_LOG_CH.send(sendMessage)
+    elif event.recruiting_message == reaction.message and event.starts_at - delta(minutes=30) <= now < event.starts_at - delta(minutes=10):
+        if user in event.recruiting_members:
+            event.recruiting_members.remove(user)
+            await reaction.message.edit(recruitMessageReplace(guild.recruitingMessageItems[-1].text, event.starts_at, len(event.recruiting_members)))
+        sendMessage = now.strftime('[%y-%m-%d %H:%M:%S.%f]') + f' :red_square: {user.display_name} '
+        for role in filter(lambda r:r in guild.ROLES.keys(), user.roles): sendMessage += str(guild.ROLES[role].emoji)
+        await guild.RECRUIT_LOG_CH.send(sendMessage)
 
-#endregion
 ##############################################################################################
 ## 
 async def reply_message(message:discord.Message, send:str, accept:bool):
@@ -292,17 +261,17 @@ def joinLeaveMembers(guild:discord.Guild, month:delta, exclusionRole:discord.Rol
 # 参加権チェック
     
 
-async def autoJoinParticipant(user:discord.Member):
+async def autoJoinParticipant(user:discord.Member, event:EventInstance):
     '''最小パーティに参加申請'''
     global ROBIN_GUILD
     minParty:LightParty|None = None
-    for party in ROBIN_GUILD.parties:
+    for party in event.parties:
         if isinstance(party, LightParty):
             if ((minParty == None or minParty.membersNum() + len(minParty.joins) > party.membersNum() + len(party.joins))
                 and party.membersNum() + len(party.joins) < 4):
                 minParty = party
     if minParty == None:
-        await createNewParty(user)
+        await createNewParty(user, event=event)
     else:
         await minParty.joinRequest(user)
 
@@ -310,7 +279,7 @@ async def autoJoinParticipant(user:discord.Member):
 
 ##############################################################################################
 #region パーティ編成アルゴリズム
-def createSpeedParties(participants:list[Participant]) -> list[SpeedParty]:
+def createSpeedParties(participants:list[Participant], event:EventInstance) -> list[SpeedParty]:
     """formation.py の汎用編成結果を Discord 用 SpeedParty に変換する。"""
     participantRoles = {participant:set(participant.roles) for participant in participants}
     formation = {role:info.count for role, info in ROBIN_GUILD.ROLES.items()}
@@ -322,7 +291,7 @@ def createSpeedParties(participants:list[Participant]) -> list[SpeedParty]:
 
     parties:list[SpeedParty] = []
     for partyNumber, formedParty in enumerate(formedParties, start=1):
-        party = SpeedParty(partyNumber, formation, context=PARTY_CONTEXT)
+        party = SpeedParty(partyNumber, formation, context=make_party_context(event))
         for role, members in formedParty.items():
             for member in members:
                 party.addMember(member, role)
@@ -330,7 +299,7 @@ def createSpeedParties(participants:list[Participant]) -> list[SpeedParty]:
     return parties
 
 
-def createLightParties(participants:list[Participant], partyIndex:int) -> list[LightParty]:
+def createLightParties(participants:list[Participant], partyIndex:int, event:EventInstance) -> list[LightParty]:
     """formation.py の汎用均等分割結果を Discord 用 LightParty に変換する。"""
     participantRoles = {participant:set(participant.roles) for participant in participants}
     formedParties = formLightParties(participantRoles, 4)
@@ -338,7 +307,7 @@ def createLightParties(participants:list[Participant], partyIndex:int) -> list[L
     parties:list[LightParty] = []
     for members in formedParties:
         partyIndex += 1
-        parties.append(LightParty(partyIndex, members.copy(), context=PARTY_CONTEXT))
+        parties.append(LightParty(partyIndex, members.copy(), context=make_party_context(event)))
     return parties
 
 
@@ -368,16 +337,17 @@ def revertParticipant(priorityPool:list[Participant], normalPool:list[Participan
 
 ##############################################################################################
 #region パーティ生成
-async def createNewParty(user:discord.Member, free:bool=False):
-    if len(ROBIN_GUILD.parties) == 0: newPartyNum = 1
-    else: newPartyNum = max(map(lambda x:x.number, ROBIN_GUILD.parties)) + 1
+async def createNewParty(user:discord.Member, free:bool=False, event:EventInstance=None):
+    if event is None: raise ValueError("Party creation requires its event instance")
+    if len(event.parties) == 0: newPartyNum = 1
+    else: newPartyNum = max(map(lambda x:x.number, event.parties)) + 1
     roles = {role for role in user.roles if role in ROBIN_GUILD.ROLES.keys()}
-    newParty = LightParty(newPartyNum, [Participant(user, roles)], free=free, context=PARTY_CONTEXT)
+    newParty = LightParty(newPartyNum, [Participant(user, roles)], free=free, context=make_party_context(event))
     newParty.message = await ROBIN_GUILD.PARTY_CH.send(newParty.getPartyMessage(ROBIN_GUILD.ROLES))
     newParty.thread = await newParty.message.create_thread(name=f'Party:{newParty.number}', auto_archive_duration=60)
-    newParty.threadControlMessage = await newParty.thread.send(view=PartyView(context=VIEW_CONTEXT, duration=((ROBIN_GUILD.timeTable[0] + delta(hours=1)) - dt.now()).total_seconds()))
+    newParty.threadControlMessage = await newParty.thread.send(view=PartyView(context=make_view_context(event), duration=((event.starts_at + delta(hours=1)) - dt.now()).total_seconds()))
     await newParty.message.add_reaction(ROBIN_GUILD.RECRUITING_EMOJI)
-    ROBIN_GUILD.parties.append(newParty)
+    event.parties.append(newParty)
 
 #endregion
 
@@ -522,29 +492,38 @@ async def roleSetting(guildInfo):
 def setRebootSchedule(schedule:discord.TextChannel|bool):
     global rebootSchedule
     rebootSchedule = schedule
+    ROBIN_GUILD.reboot_handled = False
 
 
-VIEW_CONTEXT = ViewContext(
-    get_guild=lambda: ROBIN_GUILD,
-    search_party=searchLightParty,
-    light_party_type=LightParty,
-    speed_party_type=SpeedParty,
-    make_participant=Participant,
-    make_guest=Guest,
-    check_role_right=checkRoleRight,
-    create_party=createNewParty,
-    format_recruit_message=recruitMessageReplace,
-    report_error=printTraceback,
-    reboot=f_reboot,
-    stable_reboot=f_stableReboot,
-    schedule_reboot=setRebootSchedule,
-)
+def make_view_context(event=None):
+    return ViewContext(
+        get_guild=lambda: ROBIN_GUILD,
+        get_event=lambda: event,
+        search_party=searchLightParty,
+        light_party_type=LightParty,
+        speed_party_type=SpeedParty,
+        make_participant=Participant,
+        make_guest=Guest,
+        check_role_right=checkRoleRight,
+        create_party=createNewParty,
+        format_recruit_message=recruitMessageReplace,
+        report_error=printTraceback,
+        reboot=f_reboot,
+        stable_reboot=f_stableReboot,
+        schedule_reboot=setRebootSchedule,
+    )
 
-PARTY_CONTEXT = PartyContext(
-    get_guild=lambda: ROBIN_GUILD,
-    approve_view=lambda **kwargs: ApproveView(context=VIEW_CONTEXT, **kwargs),
-    dummy_approve_view=lambda: DummyApproveView(),
-)
+
+def make_party_context(event):
+    return PartyContext(
+        get_guild=lambda: ROBIN_GUILD,
+        get_event=lambda: event,
+        approve_view=lambda **kwargs: ApproveView(context=make_view_context(event), **kwargs),
+        dummy_approve_view=lambda: DummyApproveView(),
+    )
+
+
+VIEW_CONTEXT = make_view_context()
 
 EVENT_RUNTIME = EventRuntime(
     get_guild=lambda: ROBIN_GUILD,
@@ -553,8 +532,8 @@ EVENT_RUNTIME = EventRuntime(
     recruit_message_replace=recruitMessageReplace,
     create_speed_parties=createSpeedParties,
     create_light_parties=createLightParties,
-    formation_top_view=lambda **kwargs: FormationTopView(context=VIEW_CONTEXT, **kwargs),
-    party_view=lambda **kwargs: PartyView(context=VIEW_CONTEXT, **kwargs),
+    formation_top_view=lambda event, **kwargs: FormationTopView(context=make_view_context(event), **kwargs),
+    party_view=lambda event, **kwargs: PartyView(context=make_view_context(event), **kwargs),
     print_traceback=printTraceback,
     pick_participant=pickParticipant,
     get_timetable=getTimetable,

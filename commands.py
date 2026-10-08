@@ -30,6 +30,7 @@ def register_slash_commands(
         print(f'{now} slash command formation from {ctx.interaction.user}')
         from datetime import timedelta
         guild.timeTable = [datetime(now.year, now.month, now.day, now.hour, now.minute, 0) + timedelta(minutes=31)] + guild.timeTable
+        guild.sync_events(guild.timeTable)
         await guild.PARTY_CH.send('# 【動作テスト】\n開発陣の都合によりパーティ募集の動作テストを行います\nテストの参加は任意です')
         await ctx.respond('割り込みタイムテーブルを生成しました')
 
@@ -39,6 +40,7 @@ def register_slash_commands(
         now = datetime.now()
         print(f'{now} slash command timetable from {ctx.interaction.user}')
         guild.timeTable = await get_timetable()
+        guild.sync_events(guild.timeTable)
         await client.change_presence(activity=discord.CustomActivity(name=guild.timeTable[0].strftime("Next:%H時")))
         send_message = 'タイムテーブルを更新しました'
         for t in guild.timeTable:
