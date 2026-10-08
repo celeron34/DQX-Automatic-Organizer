@@ -6,6 +6,7 @@ from glob import glob
 from re import match
 from traceback import extract_tb, format_list
 from sys import exc_info
+from os.path import isdir, join
 
 
 def markdownEsc(line:str):
@@ -111,3 +112,20 @@ def equalEmoji(emoji1: discord.partial_emoji.PartialEmoji | discord.Emoji | str,
         return False  # どちらかが不正な場合は False
 
     return emoji1_id == emoji2_id
+
+
+def getCompatibleConfigValue(config: dict, key: str, legacy_key: str):
+    """Read a canonical config key, falling back to its legacy spelling."""
+    if key in config:
+        return config[key]
+    return config[legacy_key]
+
+
+def getRecruitingMessageDirectory(guild_id, root: str = 'guilds') -> str:
+    """Prefer the corrected folder name while retaining existing installations."""
+    guild_path = join(root, str(guild_id))
+    current = join(guild_path, 'recruitingMessage')
+    legacy = join(guild_path, 'recluitingMessage')
+    if isdir(current) or not isdir(legacy):
+        return current
+    return legacy
