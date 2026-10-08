@@ -2,7 +2,7 @@ from discord import ApplicationContext, CustomActivity, File
 from main import client
 from datetime import datetime as dt, timedelta as delta
 from subprocess import Popen
-from Views import RebootView
+from views import RebootView
 from os import getcwd
 from sys import argv, exc_info, executable, exit
 
