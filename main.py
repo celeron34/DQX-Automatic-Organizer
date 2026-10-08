@@ -226,10 +226,10 @@ async def getTimetable(updateStatus:bool=True) -> list[dt]:
     print(f'{dt.now()} getting Timetable')
     timeTable:list[dt] = []
     now30 = dt.now() + delta(minutes=30)
-    for t in getTable(argv[1], argv[2]):
-        # 通過したものは追加しない
-        if t > now30:
-            timeTable.append(t)
+    for schedule in getTable(argv[1], argv[2]):
+        # 編成員Fは「全兵団」の開催時刻を扱う。過ぎた時刻は除外する。
+        if schedule.is_all_forces and schedule.datetime > now30:
+            timeTable.append(schedule.datetime)
     if updateStatus:
         await client.change_presence(activity=discord.CustomActivity(name=timeTable[0].strftime("Next:%H時")), status=discord.Status.online)
     print(f'{dt.now()} Timetable was get')
