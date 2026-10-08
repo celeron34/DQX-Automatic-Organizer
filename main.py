@@ -265,6 +265,9 @@ async def process_schedule_message(message: discord.Message) -> None:
     global _last_schedule_message_id
     if message.id == _last_schedule_message_id:
         return
+    if ROBIN_GUILD is None:
+        print(f'{dt.now()} deferred schedule bridge message until guild setup finishes')
+        return
     attachment = next(
         (item for item in message.attachments if item.filename == 'dqx-schedule.json'),
         None,
