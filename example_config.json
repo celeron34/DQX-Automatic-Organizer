@@ -1,16 +1,39 @@
-{
-    "botToken":"Bot Token",
-    "guilds":[{
-        "guild_id":111,
-        "category_id":111,
-        "role_channel":111,
-        "role_emoji":[
-            {"role":111, "emoji":111},
-            {"role":111, "emoji":111},
-            {"role":111, "emoji":111},
-            {"role":111, "emoji":111},
-            {"role":111, "emoji":111},
-            {"role":111, "emoji":111}
-        ]
-    }]
-}
+[
+  {
+    "guildID": 111111111111111111,
+    "channels": {
+      "party": 111111111111111111,
+      "party-beta": 111111111111111111,
+      "party-log": 111111111111111111,
+      "develop": 111111111111111111,
+      "command": 111111111111111111,
+      "recruit-log": 111111111111111111
+    },
+    "emojis": {
+      "recruiting": 111111111111111111,
+      "fullparty": 111111111111111111,
+      "liteparty": 111111111111111111
+    },
+    "raidRoles": {
+      "ロール名": {
+        "role": 111111111111111111,
+        "emoji": 111111111111111111,
+        "count": 1
+      }
+    },
+    "roles": {
+      "member": 111111111111111111,
+      "priority": 111111111111111111,
+      "staticPriority": 111111111111111111,
+      "master": 111111111111111111,
+      "liteParty": 111111111111111111
+    },
+    "settingRoles": [
+      {
+        "name": "表示するロール名",
+        "role": 111111111111111111,
+        "emoji": 111111111111111111
+      }
+    ]
+  }
+]

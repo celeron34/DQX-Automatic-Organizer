@@ -3,7 +3,6 @@ version = '1.1.10'
 
 import discord
 from discord.ext import tasks, commands
-from dqx_ise import getTable
 from formation import speedFormation as formSpeedParties, randomFormation as formLightParties
 from datetime import datetime as dt, timedelta as delta
 from asyncio import sleep, create_task
@@ -16,8 +15,9 @@ from traceback import extract_tb, format_list
 from re import sub, match
 from os import getcwd, path, mkdir
 import json
+import os
 from views import (
-    ViewContext, RoleManageView, ApproveView, DummyApproveView, PartyView,
+    ViewContext, ApproveView, DummyApproveView, PartyView,
     FormationTopView, RecruitView, RebootView,
 )
 from party import PartyContext, RoleInfo, PartyMember, Participant, Guest, Party, LightParty, SpeedParty
@@ -31,6 +31,8 @@ from support_utils import (
 from event_definition import EventDefinition, EventInstance, EventPhase
 from commands import register_slash_commands
 from event_runner import EventRuntime, run_scheduled_event
+from bot_tokens import get_token
+from schedule_protocol import deserialize_entries
 
 
 # インテント
@@ -49,6 +51,8 @@ client = commands.Bot(
 rebootSchedule:bool|discord.TextChannel = False
 
 ROBIN_GUILD:Guild = None
+SCHEDULE_ENTRIES = []
+_last_schedule_message_id: int | None = None
 
 ##############################################################################################
 ##############################################################################################
@@ -59,6 +63,7 @@ async def on_ready():
     print(f'{dt.now()} on_ready START')
 
     await f_fetch()
+    await load_latest_schedule_message()
 
     # コミットハッシュ取得
     script_dir = path.dirname(path.abspath(__file__)) # パス
@@ -81,7 +86,8 @@ async def on_ready():
     loop.start()
     print(f'{dt.now()} loop Start')
 
-    await client.change_presence(activity=discord.CustomActivity(name=timeTable[0].strftime("Next:%H時"))) # なぜかここにないと動かない
+    status = timeTable[0].strftime("Next:%H時") if timeTable else "スケジュール受信待ち"
+    await client.change_presence(activity=discord.CustomActivity(name=status))
     print(f'{dt.now()} on_ready END')
 
 #endregion
@@ -177,11 +183,6 @@ async def reply_message(message:discord.Message, send:str, accept:bool):
 ##############################################################################################
 ##############################################################################################
 #region メッセージ削除
-@client.event
-async def on_message_delete(message):
-    if message == ROBIN_GUILD.COMMAND_MSG:
-        ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH)
-
 #endregion
 
 ##############################################################################################
@@ -216,24 +217,79 @@ async def loop():
     await run_scheduled_event(EVENT_RUNTIME)
 
 
-async def command_message(textch:discord.TextChannel, raidRoles) -> discord.Message:
-    msg = await textch.send(content=f'## 追加・削除したいロールをタップ', view=RoleManageView(raidRoles))
-    return msg
-
 async def getTimetable(updateStatus:bool=True) -> list[dt]:
-    # タイムテーブルを取りに行く
-    await client.change_presence(activity=discord.CustomActivity(name='タイムスケジュール取得中'), status=discord.Status.dnd)
-    print(f'{dt.now()} getting Timetable')
-    timeTable:list[dt] = []
+    """Select future all-forces events from the latest schedule push."""
+    print(f'{dt.now()} reading in-memory schedule snapshot')
     now30 = dt.now() + delta(minutes=30)
-    for schedule in getTable(argv[1], argv[2]):
-        # 編成員Fは「全兵団」の開催時刻を扱う。過ぎた時刻は除外する。
-        if schedule.is_all_forces and schedule.datetime > now30:
-            timeTable.append(schedule.datetime)
-    if updateStatus:
+    timeTable = [
+        schedule.datetime for schedule in SCHEDULE_ENTRIES
+        if schedule.is_all_forces and schedule.datetime > now30
+    ]
+    if updateStatus and timeTable:
         await client.change_presence(activity=discord.CustomActivity(name=timeTable[0].strftime("Next:%H時")), status=discord.Status.online)
-    print(f'{dt.now()} Timetable was get')
+    print(f'{dt.now()} selected {len(timeTable)} future all-force events')
     return timeTable
+
+
+@client.event
+async def on_message(message: discord.Message):
+    channel_id = os.environ.get('SCHEDULE_SYNC_CHANNEL_ID')
+    schedule_bot_id = os.environ.get('SCHEDULE_BOT_USER_ID')
+    if not channel_id or not schedule_bot_id:
+        return
+    if message.author.id != int(schedule_bot_id) or message.channel.id != int(channel_id):
+        return
+    if message.content != 'DQX_SCHEDULE_SYNC_V1':
+        return
+    await process_schedule_message(message)
+
+
+async def load_latest_schedule_message() -> None:
+    channel_id = os.environ.get('SCHEDULE_SYNC_CHANNEL_ID')
+    schedule_bot_id = os.environ.get('SCHEDULE_BOT_USER_ID')
+    if not channel_id or not schedule_bot_id:
+        return
+    channel = client.get_channel(int(channel_id))
+    if channel is None:
+        channel = await client.fetch_channel(int(channel_id))
+    async for message in channel.history(limit=100):
+        if (
+            message.author.id == int(schedule_bot_id)
+            and message.content == 'DQX_SCHEDULE_SYNC_V1'
+        ):
+            await process_schedule_message(message)
+            return
+
+
+async def process_schedule_message(message: discord.Message) -> None:
+    global _last_schedule_message_id
+    if message.id == _last_schedule_message_id:
+        return
+    attachment = next(
+        (item for item in message.attachments if item.filename == 'dqx-schedule.json'),
+        None,
+    )
+    if attachment is None:
+        print(f'{dt.now()} ignored schedule bridge message without JSON attachment')
+        return
+    try:
+        entries = deserialize_entries(json.loads((await attachment.read()).decode('utf-8')))
+        if not entries:
+            raise ValueError('schedule entries are empty')
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
+        print(f'{dt.now()} ignored invalid schedule bridge message: {error}')
+        return
+
+    SCHEDULE_ENTRIES[:] = entries
+    starts_at = await getTimetable(False)
+    ROBIN_GUILD.timeTable = starts_at
+    ROBIN_GUILD.sync_events(starts_at)
+    if starts_at:
+        await client.change_presence(
+            activity=discord.CustomActivity(name=starts_at[0].strftime('Next:%H時'))
+        )
+    print(f'{dt.now()} received {len(entries)} schedule entries; created/updated {len(starts_at)} future events')
+    _last_schedule_message_id = message.id
 
 
 def joinLeaveMembers(guild:discord.Guild, month:delta, exclusionRole:discord.Role|None=None):
@@ -425,8 +481,6 @@ async def f_fetch():
         ROBIN_GUILD.MASTER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['master'])
         ROBIN_GUILD.LITE_PARTY_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['liteParty'])
 
-        await roleSetting(guildInfo)
-
         await ROBIN_GUILD.GUILD.chunk()
 
         print(f'Guild.GUILD.name: {ROBIN_GUILD.GUILD.name}: {ROBIN_GUILD.GUILD.id}')
@@ -446,36 +500,13 @@ async def f_fetch():
         for role, roleInfo in ROBIN_GUILD.ROLES.items():
             print(f'\trole:{role}: .name:{roleInfo.name}, .emoji:{roleInfo.emoji}, .count:{roleInfo.count}')
         print('}')
-        print('roleSetting:{')
-
 register_slash_commands(
     client,
     get_guild_state=lambda: ROBIN_GUILD,
-    get_timetable=getTimetable,
     reboot=f_reboot,
     fetch=f_fetch,
     reboot_view=lambda: RebootView(context=VIEW_CONTEXT),
 )
-
-
-async def roleSetting(guildInfo):
-    global ROBIN_GUILD
-    # ロール設定チャンネル初期化
-    settingRoles = {
-        settingInfo['name']:
-        {'role':ROBIN_GUILD.GUILD.get_role(settingInfo['role']), 'emoji':client.get_emoji(settingInfo['emoji'])}
-        for settingInfo in guildInfo['settingRoles']
-    }
-    print('roleSetting:{')
-    for name, value in settingRoles.items():
-        print(f'\t{name}:', end='')
-        for k,v in value.items():
-            print(f' {k}:<{v.name}:{v.id}>', end='')
-        print()
-    print('}')
-
-    await ROBIN_GUILD.COMMAND_CH.purge()
-    ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH, settingRoles)
 
 
 # @client.slash_command(name='f-get-leave-month', description='任意の月間不参加者抽出')
@@ -553,8 +584,6 @@ if __name__ == '__main__':
     print(f'{dt.now()} スクリプト起動')
     # print(f"Intents.members: {client.intents.members}")  # True ならOK
     try:
-        with open('token.json', 'r', encoding='utf-8') as f:
-            token = json.load(f)['token']
-        client.run(token)
+        client.run(get_token('formation'))
     except KeyboardInterrupt:
         exit()

@@ -13,7 +13,6 @@ def register_slash_commands(
     client: discord.Bot,
     *,
     get_guild_state: Callable[[], object],
-    get_timetable: Callable[..., object],
     reboot: Callable[..., object],
     fetch: Callable[..., object],
     reboot_view: Callable[[], discord.ui.View],
@@ -33,19 +32,6 @@ def register_slash_commands(
         guild.sync_events(guild.timeTable)
         await guild.PARTY_CH.send('# 【動作テスト】\n開発陣の都合によりパーティ募集の動作テストを行います\nテストの参加は任意です')
         await ctx.respond('割り込みタイムテーブルを生成しました')
-
-    @client.slash_command(name='f-timetable', description='タイムテーブル再取得')
-    async def f_timetable(ctx: discord.ApplicationContext):
-        guild = get_guild_state()
-        now = datetime.now()
-        print(f'{now} slash command timetable from {ctx.interaction.user}')
-        guild.timeTable = await get_timetable()
-        guild.sync_events(guild.timeTable)
-        await client.change_presence(activity=discord.CustomActivity(name=guild.timeTable[0].strftime("Next:%H時")))
-        send_message = 'タイムテーブルを更新しました'
-        for t in guild.timeTable:
-            send_message += t.strftime('\n%Y-%m-%d %H')
-        await ctx.respond(send_message)
 
     @client.slash_command(name='f-restart', description='編成員Fを再起動')
     async def f_restart(ctx: discord.ApplicationContext):

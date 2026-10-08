@@ -1,7 +1,10 @@
+.env
 config.json
-token.json
 IDs.json
-reactionLog
-cache
-guilds
+token.json
+reactionLog/
+cache/
+guilds/
+data/
 __pycache__/
+.venv/
