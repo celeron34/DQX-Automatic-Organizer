@@ -71,8 +71,8 @@ async def _run_event_instance(runtime, event: EventInstance):
         # パーティ編成クラスをインスタンス化，メッセージ送信
         print(f'################### {dt.now()} Recruiting ###################')
         event.recruiting_members.clear()
-        # 既存の募集文フォルダ名 recluitingMessage は互換性のため維持。
-        sendItems = getDirectoryItems(f'guilds/{ROBIN_GUILD.GUILD.id}/recluitingMessage')
+        # 募集文フォルダーは設定読み込み時に解決済み。
+        sendItems = getDirectoryItems(ROBIN_GUILD.recruitingMessageDirectory)
         for index, sendItem in enumerate(sendItems):
             if index - len(sendItems) + 1 == 0:
                 # 最後のメッセージ

@@ -25,8 +25,8 @@ from guild import Guild
 
 from support_utils import (
     SendItem, checkRoleRight, equalEmoji, extract_emoji_id,
-    getDirectoryItems, markdownEsc, printTraceback, recruitMessageReplace,
-    replaces, sendDirectory,
+    getCompatibleConfigValue, getDirectoryItems, getRecruitingMessageDirectory,
+    markdownEsc, printTraceback, recruitMessageReplace, replaces, sendDirectory,
 )
 from event_definition import EventDefinition, EventInstance, EventPhase
 from commands import register_slash_commands
@@ -399,14 +399,17 @@ async def f_fetch():
         ROBIN_GUILD.PARTY_LOG     = client.get_channel(guildInfo['channels']['party-log'])
         ROBIN_GUILD.DEV_CH        = client.get_channel(guildInfo['channels']['develop'])
         ROBIN_GUILD.COMMAND_CH    = client.get_channel(guildInfo['channels']['command'])
-        # IDs.json の既存キー recluit-log / recluting は互換性のため維持。
-        ROBIN_GUILD.RECRUIT_LOG_CH = client.get_channel(guildInfo['channels']['recluit-log'])
+        # 募集ログチャンネルは新しいキーを優先し、旧キーも読み込む。
+        ROBIN_GUILD.RECRUIT_LOG_CH = client.get_channel(
+            getCompatibleConfigValue(guildInfo['channels'], 'recruit-log', 'recluit-log')
+        )
 
-        # 既存の募集文フォルダ名 recluitingMessage は互換性のため維持。
-        ROBIN_GUILD.recruitingMessageItems = getDirectoryItems(f'guilds/{ROBIN_GUILD.GUILD.id}/recluitingMessage')
+        # 旧フォルダー名も互換性のため読み込み可能。
+        ROBIN_GUILD.recruitingMessageDirectory = getRecruitingMessageDirectory(ROBIN_GUILD.GUILD.id)
+        ROBIN_GUILD.recruitingMessageItems = getDirectoryItems(ROBIN_GUILD.recruitingMessageDirectory)
         
         # 絵文字ゲット
-        ROBIN_GUILD.RECRUITING_EMOJI =  client.get_emoji(guildInfo['emojis']['recluting'])
+        ROBIN_GUILD.RECRUITING_EMOJI =  client.get_emoji(getCompatibleConfigValue(guildInfo['emojis'], 'recruiting', 'recluting'))
         ROBIN_GUILD.FULLPARTY_EMOJI =  client.get_emoji(guildInfo['emojis']['fullparty'])
         ROBIN_GUILD.LIGHTPARTY_EMOJI = client.get_emoji(guildInfo['emojis']['lightparty'])
 

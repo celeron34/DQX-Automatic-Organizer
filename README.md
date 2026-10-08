@@ -72,10 +72,10 @@ python -m pip install py-cord selenium
       "party-log": 123456789012345678,
       "develop": 123456789012345678,
       "command": 123456789012345678,
-      "recluit-log": 123456789012345678
+      "recruit-log": 123456789012345678
     },
     "emojis": {
-      "recluting": 123456789012345678,
+      "recruiting": 123456789012345678,
       "fullparty": 123456789012345678,
       "lightparty": 123456789012345678
     },
@@ -174,14 +174,14 @@ Seleniumの読み込みは `getTable` の呼び出し時だけ行われます。
 募集文・画像は次のディレクトリに置きます。
 
 ```text
-guilds/<guild_id>/recluitingMessage/
+guilds/<guild_id>/recruitingMessage/
 ├── 1.txt
 ├── 1-1.png
 ├── 2.md
 └── 2.png
 ```
 
-番号順に読み込まれます。テキストには `{hour}`（開催時刻）と `{count}`（募集人数）の置換文字列を使えます。ファイル名の `recluitingMessage` は既存データとの互換性のため、この綴りのままです。
+番号順に読み込まれます。テキストには `{hour}`（開催時刻）と `{count}`（募集人数）の置換文字列を使えます。旧フォルダー名を使っている既存環境も互換用に読み込みます。新しい環境では上記の正しいフォルダー名を使ってください。
 
 参加ログは `reactionLog/`、一時ファイルは `cache/` に保存されます。これらのデータや `IDs.json`、`token.json` はリポジトリに含めないでください。
 

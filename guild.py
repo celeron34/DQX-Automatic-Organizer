@@ -45,6 +45,7 @@ class Guild:
 
         # self.formation:Formation = None # パーティ編成クラス
 
+        self.recruitingMessageDirectory:str = '' # 募集メッセージフォルダー
         self.recruitingMessageItems:list[Any] = list() # 募集メッセージアイテムリスト
 
     def sync_events(self, starts_at_list):
