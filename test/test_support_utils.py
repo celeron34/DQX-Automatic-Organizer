@@ -13,6 +13,10 @@ class RecruitingNameCompatibilityTests(unittest.TestCase):
     def test_legacy_config_key_is_a_fallback(self):
         self.assertEqual(getCompatibleConfigValue({"recluting": 2}, "recruiting", "recluting"), 2)
 
+    def test_liteparty_key_is_canonical_with_legacy_fallback(self):
+        self.assertEqual(getCompatibleConfigValue({"liteparty": 1, "lightparty": 2}, "liteparty", "lightparty"), 1)
+        self.assertEqual(getCompatibleConfigValue({"lightparty": 2}, "liteparty", "lightparty"), 2)
+
     def test_prefers_corrected_directory_name(self):
         with TemporaryDirectory() as root:
             guild_dir = Path(root) / "123"

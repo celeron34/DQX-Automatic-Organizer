@@ -77,7 +77,7 @@ python -m pip install py-cord selenium
     "emojis": {
       "recruiting": 123456789012345678,
       "fullparty": 123456789012345678,
-      "lightparty": 123456789012345678
+      "liteparty": 123456789012345678
     },
     "raidRoles": {
       "ロール名": {

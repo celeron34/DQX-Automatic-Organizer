@@ -411,7 +411,7 @@ async def f_fetch():
         # 絵文字ゲット
         ROBIN_GUILD.RECRUITING_EMOJI =  client.get_emoji(getCompatibleConfigValue(guildInfo['emojis'], 'recruiting', 'recluting'))
         ROBIN_GUILD.FULLPARTY_EMOJI =  client.get_emoji(guildInfo['emojis']['fullparty'])
-        ROBIN_GUILD.LIGHTPARTY_EMOJI = client.get_emoji(guildInfo['emojis']['lightparty'])
+        ROBIN_GUILD.LIGHTPARTY_EMOJI = client.get_emoji(getCompatibleConfigValue(guildInfo['emojis'], 'liteparty', 'lightparty'))
 
         # ロールゲット
         ROBIN_GUILD.ROLES = {
