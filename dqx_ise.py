@@ -3,41 +3,27 @@ from datetime import datetime as dt, timedelta as dt_td
 from pathlib import PurePosixPath
 from re import search
 from typing import Any
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 
 @dataclass(frozen=True)
 class DefenseScheduleEntry:
     datetime: dt
     force_id: int
-    force_name: str
-
-
-DEFENSE_FORCE_NAMES = {
-    2: '闇朱の獣牙兵団',
-    3: '紫炎の鉄機兵団',
-    4: '深碧の造魔兵団',
-    6: '蒼怨の屍獄兵団',
-    8: '銀甲の凶蟲兵団',
-    9: '翠煙の海妖兵団',
-    10: '灰塵の竜鱗兵団',
-    11: '彩虹の粘塊兵団',
-    12: '芳墨の華烈兵団',
-    13: '白雲の冥翼兵団',
-    14: '腐緑の樹葬兵団',
-    15: '青鮮の菜果兵団',
-    16: '鋼塊の重滅兵団',
-    17: '金神の遺宝兵団',
-    18: '紅爆の暴賊兵団',
-    19: '冥黒の悪夢兵団',
-    20: '全兵団',
-}
+    is_all_forces: bool
 
 
 def build_schedule_entries(
-    table_png_names: list[list[str | None]], start_at: dt
+    table_png_names: list[list[str | None]], start_at: dt, force_ids: set[int]
 ) -> list[DefenseScheduleEntry]:
-    """Associate each table icon with its scheduled datetime and force."""
+    """Associate each schedule icon with its datetime and current force ID.
+
+    The page's current force list supplies the IDs for regular forces. An icon
+    absent from that list represents the all-forces schedule slot.
+    """
+    if not table_png_names:
+        return []
+
     entries = []
     for day_index in range(len(table_png_names[0])):
         for hour_index, row in enumerate(table_png_names):
@@ -51,7 +37,7 @@ def build_schedule_entries(
             entries.append(DefenseScheduleEntry(
                 datetime=start_at + dt_td(days=day_index, hours=hour_index),
                 force_id=force_id,
-                force_name=DEFENSE_FORCE_NAMES.get(force_id, f'不明な兵団 ({force_id})'),
+                is_all_forces=force_id not in force_ids,
             ))
     return entries
 
@@ -76,6 +62,23 @@ def get_file_names(parent: Any, xpath: str, attribute: str = 'src') -> list[str]
             file_names.append(filename)
     return file_names
 
+
+def get_force_ids(parent: Any) -> set[int]:
+    """Read the currently listed force IDs from the page's filter links."""
+    force_ids = set()
+    xpath = '//*[@id="contentArea"]//a[contains(@href, "defense_force_num=")]'
+    for element in parent.find_elements('xpath', xpath):
+        href = element.get_attribute('href')
+        if not href:
+            continue
+        for value in parse_qs(urlparse(href).query).get('defense_force_num', []):
+            try:
+                force_ids.add(int(value))
+            except ValueError:
+                continue
+    return force_ids
+
+
 def getTable(browser_path:str=None, driver_path:str=None) -> list[DefenseScheduleEntry]:
     from selenium import webdriver
 
@@ -92,6 +95,7 @@ def getTable(browser_path:str=None, driver_path:str=None) -> list[DefenseSchedul
 
     b.get('https://hiroba.dqx.jp/sc/tokoyami/')
 
+    force_ids = get_force_ids(b)
     table = b.find_element('xpath', '//*[@id="raid-container"]/table/tbody')
 
     tablePngNames = []
@@ -112,5 +116,4 @@ def getTable(browser_path:str=None, driver_path:str=None) -> list[DefenseSchedul
         now -= dt_td(days=1)
 
     # tablePngNames follows the page's 24-hour rows and five date columns.
-    # The legend identifies the force icon IDs; icon 20 is the all-forces slot.
-    return build_schedule_entries(tablePngNames, now)
+    return build_schedule_entries(tablePngNames, now, force_ids)
