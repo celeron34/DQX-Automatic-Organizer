@@ -28,7 +28,7 @@ class PartyModelTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_main_reexports_extracted_models(self):
         for name in ('RoleInfo', 'PartyMember', 'Participant', 'Guest', 'Party',
-                     'LightParty', 'SpeedParty', 'Guild'):
+                     'LightParty', 'SpeedParty'):
             self.assertIs(getattr(self.main, name), getattr(party, name))
 
     async def test_participant_and_guest_models_keep_public_fields(self):
@@ -53,14 +53,6 @@ class PartyModelTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(light_party.getPartyMessage({}), "\\| 【パーティ:1】\n\\| <@27>")
         speed_party.addMember(participant, 'healer')
         self.assertEqual(speed_party.membersNum(), 1)
-
-    async def test_guild_uses_injected_client(self):
-        guild = object()
-        client = SimpleNamespace(get_guild=Mock(return_value=guild))
-        model = party.Guild(123, client)
-        client.get_guild.assert_called_once_with(123)
-        self.assertIs(model.GUILD, guild)
-        self.assertEqual(model.parties, None)
 
     async def test_join_request_creates_approve_view_through_context(self):
         user = SimpleNamespace(id=27, mention='<@27>', display_name='既存参加者')
