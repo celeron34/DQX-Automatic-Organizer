@@ -17,6 +17,7 @@ class ViewContext:
     """
 
     get_guild: Callable[[], Any]
+    get_event: Callable[[], Any]
     search_party: Callable[..., Any]
     light_party_type: type
     speed_party_type: type
@@ -33,6 +34,10 @@ class ViewContext:
     @property
     def guild(self) -> Any:
         return self.get_guild()
+
+    @property
+    def event(self) -> Any:
+        return self.get_event()
 
 
 class RoleManageView(discord.ui.View):
@@ -75,7 +80,7 @@ class ApproveView(discord.ui.View):
             disable_on_timeout = False
         super().__init__(*items, timeout=timeout, disable_on_timeout=disable_on_timeout)
     async def on_timeout(self):
-        party = self.context.search_party(self.message.channel, self.context.guild.parties)
+        party = self.context.search_party(self.message.channel, self.context.event.parties)
         if party is None: return
         requestMember = party.joins[self.message]
         await self.message.remove_reaction(self.context.guild.RECRUITING_EMOJI, party.message)
@@ -87,7 +92,7 @@ class ApproveView(discord.ui.View):
         if self.timeout is not None and self.duration is not None:
             self.timeout = self.startTime + self.duration - perf_counter()
             await self.message.edit(view=self)
-        party = self.context.search_party(interaction.channel.starting_message, self.context.guild.parties)
+        party = self.context.search_party(interaction.channel.starting_message, self.context.event.parties)
         if party is None or not party.isMember(interaction.user): # パーティが存在しないかスレッドパーティのメンバでない
             print(f'{dt.now()} ApproveView: Out of party {interaction.user}')
             await interaction.response.send_message(f'パーティ外からの操作はできません', delete_after=5, ephemeral=True)
@@ -100,7 +105,7 @@ class ApproveView(discord.ui.View):
             message = interaction.message
             user = interaction.user
             print(f'{dt.now()} Approve from {user} {type(user)}')
-            party = self.context.search_party(message.channel, self.context.guild.parties)
+            party = self.context.search_party(message.channel, self.context.event.parties)
             if user.id in {participant.id for participant in party.members}: # パーティメンバである
                 self.disable_on_timeout = False
                 self.disable_all_items()
@@ -109,7 +114,7 @@ class ApproveView(discord.ui.View):
                 thread = message.channel
                 joinMember = party.joins[message]
                 print(f'JoinMember: {joinMember}')
-                for p in self.context.guild.parties:
+                for p in self.context.event.parties:
                     if isinstance(p, self.context.light_party_type) and p.isMember(joinMember):
                         await p.removeMember(joinMember)
                         break
@@ -155,7 +160,7 @@ class PartyView(discord.ui.View):
             print(f'{dt.now()} PartyView: {interaction.user} have not Member')
             await interaction.response.send_message(f'参加権がありません', delete_after=5, ephemeral=True)
             return False
-        party = self.context.search_party(interaction.message, self.context.guild.parties)
+        party = self.context.search_party(interaction.message, self.context.event.parties)
         if party is None or not party.isMember(interaction.user): # パーティが存在しないかスレッドパーティのメンバでない
             print(f'{dt.now()} Party: Out of party {interaction.user}')
             await interaction.response.send_message(f'パーティ外からの操作はできません', delete_after=5, ephemeral=True)
@@ -166,7 +171,7 @@ class PartyView(discord.ui.View):
     @discord.ui.button(label='パーティを抜ける', style=discord.ButtonStyle.gray, row=2)
     async def leaveParty(self, button:discord.ui.Button, interaction:discord.Interaction):
         print(f'{dt.now()} Leave party button is pressed from {interaction.user.display_name}')
-        party = self.context.search_party(interaction.message, self.context.guild.parties)
+        party = self.context.search_party(interaction.message, self.context.event.parties)
         await interaction.response.defer()
         if party == None:
             print(f'非パーティメンバによるアクション')
@@ -181,7 +186,7 @@ class PartyView(discord.ui.View):
             try:
                 if party.isEmpty():
                     print('パーティが0人')
-                    self.context.guild.parties.remove(party)
+                    self.context.event.parties.remove(party)
                     await party.message.delete()
             except Exception as e:
                 self.context.report_error(e)
@@ -194,7 +199,7 @@ class PartyView(discord.ui.View):
     async def addGuest(self, button:discord.ui.Button, interaction:discord.Interaction):
         print(f'{dt.now()} Guest add button is pressed from {interaction.user.display_name}')
         await interaction.response.defer()
-        party = self.context.search_party(interaction.channel.starting_message, self.context.guild.parties)
+        party = self.context.search_party(interaction.channel.starting_message, self.context.event.parties)
         if party == None:
             print(f'非パーティメンバによるアクション')
             msg = await interaction.channel.send(f'{interaction.user.mention}パーティメンバ以外は操作できません')
@@ -206,7 +211,7 @@ class PartyView(discord.ui.View):
     @discord.ui.button(label='ゲスト削除', style=discord.ButtonStyle.red, row=1)
     async def removeGuest(self, button:discord.ui.Button, interaction:discord.Interaction):
         print(f'{dt.now()} Guest remove button from {interaction.user.display_name}')
-        party = self.context.search_party(interaction.channel.starting_message, self.context.guild.parties)
+        party = self.context.search_party(interaction.channel.starting_message, self.context.event.parties)
         if party == None:
             print(f'非パーティメンバによるアクション')
             await interaction.response.send_message(f'{interaction.user.mention}パーティメンバ以外は操作できません', ephemeral=True, delete_after=5)
@@ -250,18 +255,18 @@ class FormationTopView(discord.ui.View):
             await self.context.check_role_right(user, None, set(self.context.guild.ROLES.keys()), 'ロールが設定されていません')):
             return
         # SpeedParty に所属しているなら新規作成を禁止
-        if self.context.guild.parties and any(p.isMember(user) for p in self.context.guild.parties if isinstance(p, self.context.speed_party_type)):
+        if self.context.event.parties and any(p.isMember(user) for p in self.context.event.parties if isinstance(p, self.context.speed_party_type)):
             await interaction.response.send_message(f'{user.mention}\nフルパーティメンバは新規パーティを生成できません', delete_after=5, ephemeral=True)
             return
 
         # LightParty に所属しているなら既存パーティから抜ける（通常は1つだけ）
-        if self.context.guild.parties:
-            for party in list(self.context.guild.parties):
+        if self.context.event.parties:
+            for party in list(self.context.event.parties):
                 if isinstance(party, self.context.light_party_type) and party.isMember(user):
                     await party.removeMember(user)
                     break
 
-        await self.context.create_party(user, free=True)
+        await self.context.create_party(user, free=True, event=self.context.event)
 
 
 class RecruitView(discord.ui.View):
@@ -294,21 +299,21 @@ class RecruitView(discord.ui.View):
     async def joinRecruit(self, button:discord.ui.Button, interaction:discord.Interaction):
         now = dt.now()
         # 未参加であれば追加
-        if interaction.user in self.context.guild.RECRUITING_MEMBER:
+        if interaction.user in self.context.event.recruiting_members:
             # 既に参加している
             print(f'{now} Recruit button from {interaction.user.display_name} but already joined')
             await interaction.response.send_message(
                 f'参加済です\nテスト中ですので、編成に失敗する恐れがあります。\n念のために{self.context.guild.RECRUITING_EMOJI}リアクションもしておくと確実です。',
-                ephemeral=True, delete_after=(self.context.guild.timeTable[0] - now).total_seconds() - 600.)
+                ephemeral=True, delete_after=(self.context.event.starts_at - now).total_seconds() - 600.)
         else:
             print(f'{now} Recruit button from {interaction.user.display_name}')
-            self.context.guild.RECRUITING_MEMBER.append(interaction.user)
+            self.context.event.recruiting_members.append(interaction.user)
             await interaction.response.send_message(
                 f'参加を受け付けました\nテスト中ですので、編成に失敗する恐れがあります。\n念のために{self.context.guild.RECRUITING_EMOJI}リアクションもしておくと確実です。',
-                ephemeral=True, delete_after=(self.context.guild.timeTable[0] - now).total_seconds() - 600.)
+                ephemeral=True, delete_after=(self.context.event.starts_at - now).total_seconds() - 600.)
             sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :green_square: {interaction.user.display_name}\n現在の参加者:'
-            await interaction.message.edit(self.context.format_recruit_message(self.msg, self.context.guild.timeTable[0], len(self.context.guild.RECRUITING_MEMBER)))
-            for member in self.context.guild.RECRUITING_MEMBER:
+            await interaction.message.edit(self.context.format_recruit_message(self.msg, self.context.event.starts_at, len(self.context.event.recruiting_members)))
+            for member in self.context.event.recruiting_members:
                 sendMessage += f' {member.display_name}'
             await self.context.guild.RECRUIT_LOG_CH.send(sendMessage)
 
@@ -316,21 +321,21 @@ class RecruitView(discord.ui.View):
     async def leaveRecruit(self, button:discord.ui.Button, interaction:discord.Interaction):
         # 既に参加しているなら削除
         now = dt.now()
-        if interaction.user in self.context.guild.RECRUITING_MEMBER:
+        if interaction.user in self.context.event.recruiting_members:
             print(f'{now} Recruit leave button from {interaction.user.display_name}')
-            self.context.guild.RECRUITING_MEMBER.remove(interaction.user)
-            await interaction.response.send_message('辞退を受け付けました', ephemeral=True, delete_after=(self.context.guild.timeTable[0] - now).total_seconds() - 600.)
-            await interaction.message.edit(self.context.format_recruit_message(self.msg, self.context.guild.timeTable[0], len(self.context.guild.RECRUITING_MEMBER)))
+            self.context.event.recruiting_members.remove(interaction.user)
+            await interaction.response.send_message('辞退を受け付けました', ephemeral=True, delete_after=(self.context.event.starts_at - now).total_seconds() - 600.)
+            await interaction.message.edit(self.context.format_recruit_message(self.msg, self.context.event.starts_at, len(self.context.event.recruiting_members)))
             await interaction.message.remove_reaction(self.context.guild.RECRUITING_EMOJI, interaction.user)
             sendMessage = now.strftime('[%y-%m-%d %H:%M]') + f' :red_square: {interaction.user.display_name}\n現在の参加者:'
             # 更新メッセージ
-            for member in self.context.guild.RECRUITING_MEMBER:
+            for member in self.context.event.recruiting_members:
                 sendMessage += f' {member.display_name}'
             await self.context.guild.RECRUIT_LOG_CH.send(sendMessage)
 
         else:
             print(f'{now} Recruit leave button from {interaction.user.display_name} but not joined')
-            await interaction.response.send_message('辞退済です', ephemeral=True, delete_after=(self.context.guild.timeTable[0] - now).total_seconds() - 600.)
+            await interaction.response.send_message('辞退済です', ephemeral=True, delete_after=(self.context.event.starts_at - now).total_seconds() - 600.)
 
 
 class RebootView(discord.ui.View):

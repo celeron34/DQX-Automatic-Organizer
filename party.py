@@ -11,12 +11,17 @@ class PartyContext:
     """Party models' access to live application state and Discord UI factories."""
 
     get_guild: Callable[[], Any]
+    get_event: Callable[[], Any]
     approve_view: Callable[..., Any]
     dummy_approve_view: Callable[[], Any]
 
     @property
     def guild(self) -> Any:
         return self.get_guild()
+
+    @property
+    def event(self) -> Any:
+        return self.get_event()
 
 
 class RoleInfo:
@@ -84,7 +89,7 @@ class LightParty(Party):
     async def _removeAlliance(self, party:LightParty):
         self.alliance = None
         await self.thread.send(f'@everyone\n## パーティ:{party.number} の同盟を解除')
-        await self.allianceCheck(self.context.guild.parties)
+        await self.allianceCheck(self.context.event.parties)
         await self.message.edit(self.getPartyMessage(self.context.guild.ROLES))
 
     async def allianceCheck(self, parties:list[LightParty]):
@@ -136,7 +141,7 @@ class LightParty(Party):
         print(f'Remove join request target:{target}')
         if target == None: target = self
         if isinstance(target, discord.Member):
-            for party in self.context.guild.parties:
+            for party in self.context.event.parties:
                 # LightPartyクラス以外をはじく
                 if not isinstance(party, LightParty): continue
                 for message, member in party.joins.items():
@@ -173,11 +178,11 @@ class LightParty(Party):
             # for message, member in self.joins.items():
             #     if member == participant.user: del self.joins[message]
         await self.thread.send(f'{participant.display_name} が加入\n{self.getPartyMessage(self.context.guild.ROLES)}')
-        await self.allianceCheck(self.context.guild.parties)
+        await self.allianceCheck(self.context.event.parties)
         if self.membersNum() >= 4: # 4人パーティ検知
             await self.removeJoinRequest(self) # 4人になったのでパーティに来ているリクエストを全削除
             await self.message.clear_reaction(self.context.guild.RECRUITING_EMOJI)
-            for party in self.context.guild.parties:
+            for party in self.context.event.parties:
                 if not isinstance(party, LightParty): continue
                 if party.membersNum() != 4: break
             else: await self.context.guild.PARTY_CH.send('／\nソロ周回スタートする方は\nPT新規生成ヨロシクですっ☆\n▶[新規パーティー生成](https://discord.com/channels/1246651972342386791/1379813214828630137/1380073785855705141)\n＼')
