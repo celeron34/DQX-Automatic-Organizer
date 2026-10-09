@@ -503,6 +503,18 @@ async def f_fetch():
         for role, roleInfo in ROBIN_GUILD.ROLES.items():
             print(f'\trole:{role}: .name:{roleInfo.name}, .emoji:{roleInfo.emoji}, .count:{roleInfo.count}')
         print('}')
+async def request_schedule(ctx: discord.ApplicationContext):
+    channel_id = os.environ.get('SCHEDULE_SYNC_CHANNEL_ID')
+    if not channel_id:
+        await ctx.respond('SCHEDULE_SYNC_CHANNEL_ID が設定されていません', ephemeral=True)
+        return
+    channel = client.get_channel(int(channel_id))
+    if channel is None:
+        channel = await client.fetch_channel(int(channel_id))
+    await channel.send(content='DQX_SCHEDULE_FETCH_V1')
+    await ctx.respond('スケジュールBotに取得を依頼しました', ephemeral=True)
+
+
 register_slash_commands(
     client,
     get_guild_state=lambda: ROBIN_GUILD,

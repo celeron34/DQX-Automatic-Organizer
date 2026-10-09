@@ -27,12 +27,12 @@ export SCHEDULE_BOT_TOKEN="スケジュールBotのトークン"
 export FORMATION_BOT_TOKEN="編成Botのトークン"
 export ROLE_BOT_TOKEN="ロールBotのトークン"
 export SCHEDULE_SYNC_CHANNEL_ID="専用チャンネルのID"
-export SCHEDULE_BOT_USER_ID="スケジュールBotのユーザーID"
+export FORMATION_BOT_USER_ID="編成BotのユーザーID"
 ```
 
 編成Botだけは移行期間中 `token.json` の `{"token": "..."}` も読み込みます。スケジュールBotとロールBotは専用の環境変数が必要です。
 
-専用チャンネルを作成し、スケジュールBotにはメッセージ送信、編成Botには履歴閲覧・添付ファイル閲覧権限を付与します。両Botに同じ `SCHEDULE_SYNC_CHANNEL_ID` を設定し、編成Botには `SCHEDULE_BOT_USER_ID` も設定します。チャンネルは他のメンバーから見えないようにします。
+専用チャンネルを作成し、スケジュールBotにはメッセージ送信・メッセージ閲覧権限、編成Botにはメッセージ送信・履歴閲覧・添付ファイル閲覧権限を付与します。両Botに同じ `SCHEDULE_SYNC_CHANNEL_ID` を設定し、スケジュールBotには許可する依頼元である編成Botの `FORMATION_BOT_USER_ID` を設定します。チャンネルは他のメンバーから見えないようにします。
 
 ## 起動
 
@@ -42,13 +42,13 @@ python schedule_bot.py /path/to/chrome /path/to/chromedriver
 python role_bot.py
 ```
 
-ブラウザーとChromeDriverのパスは省略できます。必要なら `CHROME_BINARY` と `CHROMEDRIVER` 環境変数でも指定できます。スケジュールBotは起動時と15分ごとに取得し、専用チャンネルへJSON添付メッセージを送ります。編成Botがそのメッセージを受け取り、予定をイベントへ同期します。管理者はスケジュールBotの `/f-timetable` または `/f-schedule-refresh` から手動更新できます。ロールBotは起動時にロールパネルを投稿し、`/f-role-panel-refresh` で再生成します。
+スケジュール取得は自動では開始しません。人はスケジュールBotの `/f-timetable` または `/f-schedule-refresh` を実行できます。編成Botの `/f-schedule-request` を実行すると、専用チャンネル経由でスケジュールBotへ取得を依頼します。スケジュールBotは依頼を検証してスクレイピングし、取得結果をJSON添付メッセージとして投稿します。編成Botが受信してイベントを同期します。ブラウザーとChromeDriverのパスは省略できます。必要なら `CHROME_BINARY` と `CHROMEDRIVER` 環境変数でも指定できます。ロールBotは起動時にロールパネルを投稿し、`/f-role-panel-refresh` で再生成します。
 
 スケジュールBotが予定データの送り手で、編成Botが受け取ったデータからイベントを生成・同期します。Discordのスラッシュコマンドは人がBotごとに実行する操作なので、Botが別Botのスラッシュコマンドを直接呼び出す形にはできません。代わりに専用チャンネルのメッセージをBot間の受け渡しに使います。同じ予定を再送しても、イベントの実行状態は維持されます。ロールBotはこの連携に関与しません。
 
 ## Discord Bot設定
 
-各Botを対象サーバーに招待し、担当機能に必要な権限を付与します。編成Botはメンバー、メッセージ内容、リアクションのIntentを有効にしてください。ロールBotはメンバーIntentとロール管理権限が必要で、対象ロールより上にBotロールを配置します。スケジュールBotはスクレイピングとスラッシュコマンドに必要な基本権限を使います。
+各Botを対象サーバーに招待し、担当機能に必要な権限を付与します。編成Botはメンバー、メッセージ内容、リアクションのIntentを有効にしてください。スケジュールBotはメッセージ内容Intentを有効にし、Bot間依頼を専用チャンネルで受信できるようにします。ロールBotはメンバーIntentとロール管理権限が必要で、対象ロールより上にBotロールを配置します。
 
 ## テスト
 

@@ -15,6 +15,7 @@ def register_slash_commands(
     get_guild_state: Callable[[], object],
     reboot: Callable[..., object],
     fetch: Callable[..., object],
+    request_schedule: Callable[..., object],
     reboot_view: Callable[[], discord.ui.View],
 ) -> None:
     """Register the existing operator commands against injected bot services."""
@@ -105,3 +106,11 @@ def register_slash_commands(
         print(f'{datetime.now()} slash command fetch from {ctx.interaction.user}')
         await fetch()
         await ctx.respond('ギルド情報を再取得しました')
+
+
+    @client.slash_command(name='f-schedule-request', description='スケジュールBotにタイムテーブル取得を依頼')
+    async def f_schedule_request(ctx: discord.ApplicationContext):
+        if ctx.guild is None:
+            await ctx.respond('目的のサーバー内でコマンドしてください', ephemeral=True)
+            return
+        await request_schedule(ctx)

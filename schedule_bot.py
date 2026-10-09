@@ -10,16 +10,19 @@ from datetime import datetime
 from sys import argv
 
 import discord
-from discord.ext import tasks
 
 from bot_tokens import get_token
 from dqx_ise import getTable
 from schedule_protocol import serialize_entries
 
 
-client = discord.Bot(debug_guilds=[1246651972342386791], intents=discord.Intents.default())
+intents = discord.Intents.default()
+intents.guild_messages = True
+intents.message_content = True
+client = discord.Bot(debug_guilds=[1246651972342386791], intents=intents)
 _refresh_lock = asyncio.Lock()
 _last_published_payload: str | None = None
+FETCH_REQUEST_MARKER = "DQX_SCHEDULE_FETCH_V1"
 
 
 async def send_schedule_to_formation(entries: list, *, force: bool = False) -> None:
@@ -80,21 +83,26 @@ async def f_schedule_refresh(ctx: discord.ApplicationContext):
     await report_refresh(ctx)
 
 
-@tasks.loop(minutes=15)
-async def scheduled_refresh():
-    try:
-        entries = await refresh_schedule()
-        print(f"{datetime.now()} published {len(entries)} schedule entries")
-    except Exception as error:
-        print(f"{datetime.now()} schedule refresh failed: {error}")
+@client.event
+async def on_ready():
+    print(f"schedule bot ready: {client.user}")
 
 
 @client.event
-async def on_ready():
-    if not scheduled_refresh.is_running():
-        await scheduled_refresh()
-        scheduled_refresh.start()
-    print(f"schedule bot ready: {client.user}")
+async def on_message(message: discord.Message):
+    channel_id = os.environ.get("SCHEDULE_SYNC_CHANNEL_ID")
+    requester_id = os.environ.get("FORMATION_BOT_USER_ID")
+    if not channel_id or not requester_id:
+        return
+    if not message.author.bot or message.author.id != int(requester_id):
+        return
+    if message.channel.id != int(channel_id) or message.content != FETCH_REQUEST_MARKER:
+        return
+    try:
+        entries = await refresh_schedule(publish_even_if_unchanged=True)
+        print(f"{datetime.now()} completed bot-requested scrape: {len(entries)} entries")
+    except Exception as error:
+        print(f"{datetime.now()} bot-requested schedule refresh failed: {error}")
 
 
 if __name__ == "__main__":
