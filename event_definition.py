@@ -74,6 +74,7 @@ class EventInstance:
     parties: list[Any] | None = None
     recruiting_message: Any = None
     processed_phases: set[EventPhase] = field(default_factory=set)
+    guild: Any = field(default=None, repr=False, compare=False)
 
     @property
     def starts_at(self) -> datetime:
