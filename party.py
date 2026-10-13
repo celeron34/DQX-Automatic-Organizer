@@ -14,7 +14,7 @@ class PartyContext:
     get_event: Callable[[], Any]
     approve_view: Callable[..., Any]
     dummy_approve_view: Callable[[], Any]
-    formation_top_view: Callable[..., Any]
+    formation_top_view: Callable[..., Any] | None = None
 
     @property
     def guild(self) -> Any:
