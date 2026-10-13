@@ -26,6 +26,9 @@ def register_slash_commands(
             await ctx.respond('目的のサーバー内でコマンドしてください')
             return
         guild = get_guild_state(ctx.guild.id)
+        if guild is None:
+            await ctx.respond('このサーバーは設定されていません')
+            return
         now = datetime.now()
         print(f'{now} slash command formation from {ctx.interaction.user}')
         from datetime import timedelta
@@ -40,11 +43,15 @@ def register_slash_commands(
             await ctx.respond('目的のサーバー内でコマンドしてください')
             return
         guild = get_guild_state(ctx.guild.id)
+        if guild is None:
+            await ctx.respond('このサーバーは設定されていません')
+            return
         now = datetime.now()
         print(f'{now} slash command timetable from {ctx.interaction.user}')
         guild.timeTable = await get_timetable()
         guild.sync_events(guild.timeTable)
-        await client.change_presence(activity=discord.CustomActivity(name=guild.timeTable[0].strftime("Next:%H時")))
+        if guild.timeTable:
+            await client.change_presence(activity=discord.CustomActivity(name=guild.timeTable[0].strftime("Next:%H時")))
         send_message = 'タイムテーブルを更新しました'
         for t in guild.timeTable:
             send_message += t.strftime('\n%Y-%m-%d %H')
@@ -56,10 +63,14 @@ def register_slash_commands(
             await ctx.respond('目的のサーバー内でコマンドしてください')
             return
         guild = get_guild_state(ctx.guild.id)
+        if guild is None:
+            await ctx.respond('このサーバーは設定されていません')
+            return
         from datetime import timedelta
         print(f'{datetime.now()} slash command restart from {ctx.interaction.user}')
         if len(guild.timeTable) == 0:
             await reboot(ctx)
+            return
         if guild.timeTable[0] - timedelta(minutes=40) < datetime.now():
             await ctx.respond('パーティ機能作動中または，まもなくパーティ編成を開始します\n再起動スケジュールを選択してください', view=reboot_view(ctx.guild.id))
         else:
@@ -104,6 +115,9 @@ def register_slash_commands(
             await ctx.respond('目的のサーバー内でコマンドしてください')
             return
         guild = get_guild_state(ctx.guild.id)
+        if guild is None:
+            await ctx.respond('このサーバーは設定されていません')
+            return
         target_roles = [guild.LITE_PARTY_ROLE] + list(guild.ROLES.keys())
         filename = f'reactionLog/{ctx.interaction.guild.name}_roleList.csv'
         with open(filename, 'w') as f:
