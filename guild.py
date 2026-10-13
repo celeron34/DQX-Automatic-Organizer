@@ -29,6 +29,7 @@ class Guild:
         self.timetable_lock = asyncio.Lock() # 複数イベントが同じ分に終了する際の更新保護
         self.reboot_handled = False
         self.reboot_schedule:discord.TextChannel|bool = False
+        self.settingRoles:dict[str, Any] = {}
         # self.timeTableThread:ThreadPoolExecutor = None # タイムテーブルスレッド
 
         # リアクション
