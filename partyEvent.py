@@ -3,7 +3,6 @@ from __future__ import annotations # 必ず先頭に
 from datetime import datetime as dt, timedelta as delta
 from typing import Any
 from discord import Guild, File, Member, Message, TextChannel, Role, Emoji, CategoryChannel, User, Thread
-from views import FormationTopView
 from formation import speedFormation, randomFormation
 from random import shuffle
 from main import client
@@ -52,7 +51,7 @@ class PartyEvent:
         self.partyChannel:TextChannel = None
         self.threadAutoArchiveDuration:int = threadAutoArchiveDuration
         self.speedParties:list[SpeedParty] = list()
-        self.randomParties:list[LightParty] = list()
+        self.lightParties:list[LightParty] = list()
         if self.remindTime == None: self.status:int = 1
         else: self.status:int = 0
     async def tick(self, nowTime:dt):
@@ -77,16 +76,16 @@ class PartyEvent:
                 self.status = 3
             else: return None
             speedPartiesMember:list[dict[Role,list[Member]]] = list()
-            randomPartiesMember:list[list[Member]] = list()
+            lightPartiesMember:list[list[Member]] = list()
             with self.partyChannel.typing():                
                 formationTimeStart = dt.now()
                 shuffle(self.members)
                 participants:dict[Member,set[Role]] = dict()
                 for member in self.members:
                     participants[member] = set(role for role in self.speedPartyFormation.keys() if role in member.roles)
-                speedPartiesMember = speedFormation(participants, speedFormation)
-                if self.randomPartyLimit: randomPartiesMember:list[list[Member]] = randomFormation(participants, self.randomPartyLimit)
-                else: randomPartiesMember:list[list[Member]] = []
+                speedPartiesMember = speedFormation(participants, self.speedPartyFormation)
+                if self.randomPartyLimit: lightPartiesMember:list[list[Member]] = randomFormation(participants, self.randomPartyLimit)
+                else: lightPartiesMember:list[list[Member]] = []
                 formationTimeEnd = dt.now()
 
                 # パーティのインスタンス化
@@ -101,12 +100,12 @@ class PartyEvent:
                     self.speedParties.append(speedParty)
                     self.parties.append(speedParty)
                 # ランダムパーティ
-                for party in randomPartiesMember:
+                for party in lightPartiesMember:
                     partyParticipants = list()
                     for member in party:
                         partyParticipants.append(Participant(member, set(r for r in self.roles.keys() if r in member.roles)))
                     lightParty = LightParty(partyNumber, partyParticipants, context=self.context)
-                    self.randomParties.append(lightParty)
+                    self.lightParties.append(lightParty)
                     self.parties.append(lightParty)
                 
                 viewTimeout = self.endTime if isinstance(self.endTime, delta) else self.eventTime - self.endTime
@@ -114,21 +113,21 @@ class PartyEvent:
                     self.eventTime.strftime('## %H時のパーティ編成が完了しました\n参加者は ___**サーバー3**___ へ\n原則、一番上がリーダーです' +
                                             '' if len(participants) != 8 else '\n参加者が8人ですので\n## 殲滅固定（カンダタを倒す）同盟です\n参加者は ___**サーバー3**___ へ') +
                                             f'\n-# 編成処理時間: {str((formationTimeEnd - formationTimeStart).total_seconds())}秒',
-                                            view=FormationTopView(timeout=viewTimeout.seconds))
+                                            view=self.context.formation_top_view(timeout=viewTimeout.seconds))
                 for party in self.speedParties: # 高速パーティ通知
                     party.message = await self.partyChannel.send(party.getPartyMessage(self.roles))
-                for party in self.randomParties: # 通常パーティ通知
+                for party in self.lightParties: # 通常パーティ通知
                     party.message = await self.partyChannel.send(party.getPartyMessage(self.roles))
             for party in self.speedParties: # 高速パーティスレッド
                 party.thread = await party.message.create_thread(name=f'SpeedParty:{party.number}', auto_archive_duration=self.threadAutoArchiveDuration)
             if self.speedParties: # 高速パーティがあるときは画像を出す
                 self.partyChannel.send(file=self.speedPartySendImage)
-            for party in self.randomParties: # 通常パーティスレッド
+            for party in self.lightParties: # 通常パーティスレッド
                 party.thread = await party.message.create_thread(name=f'Party:{party.number}', auto_archive_duration=self.threadAutoArchiveDuration)
             
             # アライアンスチェック
             if self.randomAlliance:
-                for party in self.randomParties:
+                for party in self.lightParties:
                     if party.alliance is None:
                         await party.allianceCheck(self.parties)
                         party.message.edit(party.getPartyMessage(self.roles))
