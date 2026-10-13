@@ -523,6 +523,7 @@ def make_party_context(event):
         get_event=lambda: event,
         approve_view=lambda **kwargs: ApproveView(context=make_view_context(event), **kwargs),
         dummy_approve_view=lambda: DummyApproveView(),
+        formation_top_view=lambda **kwargs: FormationTopView(context=make_view_context(event), **kwargs),
     )
 
 
