@@ -41,21 +41,15 @@ intents.guild_messages = True
 intents.guild_reactions = True
 intents.guild_typing = True
 intents.message_content = True
-client = commands.Bot(
-    debug_guilds=[1246651972342386791],
-    intents=intents
-    )
+client = commands.Bot(intents=intents)
 
-rebootSchedule:bool|discord.TextChannel = False
-
-ROBIN_GUILD:Guild = None
+GUILDS:dict[int, Guild] = {}
 
 ##############################################################################################
 ##############################################################################################
 #region イニシャライズ
 @client.event
 async def on_ready():
-    global ROBIN_GUILD
     print(f'{dt.now()} on_ready START')
 
     await f_fetch()
@@ -64,24 +58,28 @@ async def on_ready():
     script_dir = path.dirname(path.abspath(__file__)) # パス
     git_root = check_output(['git', '-C', script_dir, 'rev-parse', '--show-toplevel'], text=True).strip()
     commit_hash = check_output(['git', '-C', git_root, 'rev-parse', 'HEAD'], text=True).strip()
-    await ROBIN_GUILD.DEV_CH.send(f'commit hash: {commit_hash}')
+    for guild in GUILDS.values():
+        await guild.DEV_CH.send(f'commit hash: {commit_hash}')
 
-    # タイムテーブルをゲット
-    timeTable = await getTimetable(False)
-    ROBIN_GUILD.timeTable = timeTable
-    ROBIN_GUILD.sync_events(timeTable)
-    for t in ROBIN_GUILD.timeTable:
-        print(t)
+    # 同じ全兵団スケジュールを各サーバーのイベント状態へ反映
+    time_table = await getTimetable(False)
+    for guild in GUILDS.values():
+        guild.timeTable = list(time_table)
+        guild.sync_events(guild.timeTable)
+        for start_at in guild.timeTable:
+            print(f'{guild.GUILD.name}: {start_at}')
 
     # ループの時間調整
     await client.change_presence(activity=discord.CustomActivity(name='時間同期待ち'), status=discord.Status.dnd)
     second = dt.now().second
     print(f'{dt.now()} Loop sync wait')
     await sleep(60.5 - second)
-    loop.start()
+    if not loop.is_running():
+        loop.start()
     print(f'{dt.now()} loop Start')
 
-    await client.change_presence(activity=discord.CustomActivity(name=timeTable[0].strftime("Next:%H時"))) # なぜかここにないと動かない
+    if time_table:
+        await client.change_presence(activity=discord.CustomActivity(name=time_table[0].strftime("Next:%H時")))
     print(f'{dt.now()} on_ready END')
 
 #endregion
@@ -92,10 +90,11 @@ async def on_ready():
 @client.event
 async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord.User):
     if user == client.user or not reaction.is_custom_emoji(): return
-    guild = ROBIN_GUILD
+    guild = GUILDS.get(reaction.message.guild.id)
+    if guild is None: return
     now = dt.now()
     print(f'{now} receive reaction add {user} {reaction.emoji.name}')
-    event = find_event_for_message(reaction.message)
+    event = find_event_for_message(reaction.message, guild)
     if event is None or reaction.emoji != guild.RECRUITING_EMOJI: return
     if event.parties is not None:
         if not (await checkRoleRight(user, reaction.message.channel, {guild.MEMBER_ROLE}, '参加権がありません') and
@@ -123,8 +122,12 @@ async def on_reaction_add(reaction:discord.Reaction, user:discord.Member|discord
         await guild.RECRUIT_LOG_CH.send(sendMessage)
 
 
-def find_event_for_message(message):
-    for event in ROBIN_GUILD.events:
+def find_event_for_message(message, guild=None):
+    if guild is None and message.guild is not None:
+        guild = GUILDS.get(message.guild.id)
+    if guild is None:
+        return None
+    for event in guild.events:
         if event.recruiting_message == message: return event
         for party in event.parties or []:
             if message in (party.message, getattr(party, 'threadControlMessage', None)):
@@ -141,12 +144,13 @@ def searchLightParty(message:discord.Message, parties:list[Party]) -> LightParty
 
 @client.event
 async def on_reaction_remove(reaction:discord.Reaction, user:discord.Member|discord.User):
-    guild = ROBIN_GUILD
     if user == client.user or not reaction.is_custom_emoji(): return
+    guild = GUILDS.get(reaction.message.guild.id)
+    if guild is None: return
     if guild.MEMBER_ROLE not in user.roles: return
     now = dt.now()
     print(f'{now} receive reaction remove {user} {reaction.emoji.name}')
-    event = find_event_for_message(reaction.message)
+    event = find_event_for_message(reaction.message, guild)
     if event is None or reaction.emoji != guild.RECRUITING_EMOJI: return
     if event.parties is not None:
         party = searchLightParty(reaction.message, event.parties)
@@ -179,8 +183,9 @@ async def reply_message(message:discord.Message, send:str, accept:bool):
 #region メッセージ削除
 @client.event
 async def on_message_delete(message):
-    if message == ROBIN_GUILD.COMMAND_MSG:
-        ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH)
+    guild = GUILDS.get(message.guild.id) if message.guild else None
+    if guild is not None and message == guild.COMMAND_MSG:
+        guild.COMMAND_MSG = await command_message(guild.COMMAND_CH, guild.settingRoles)
 
 #endregion
 
@@ -189,22 +194,22 @@ async def on_message_delete(message):
 #region 定期実行 パーティ編成
         
     # if (now + delta(minutes=1)).month == now.month + 1: # 1分後が来月 -> 明日が1日の23:59
-    #     members = joinLeaveMembers(ROBIN_GUILD.GUILD, 3, ROBIN_GUILD.GUILD.get_role(1246989946263306302))
+    #     members = joinLeaveMembers(guild.GUILD, 3, guild.GUILD.get_role(1246989946263306302))
     #     msg = '3か月不参加メンバ:'
     #     if members:
     #         for member in members:
     #             msg += f' {member.mention}'
     #     else:
     #         msg += '（なし）'
-    #     await ROBIN_GUILD.DEV_CH
+    #     await guild.DEV_CH
 
     ######################################################
     #
-    # elif now + delta(minutes=60) > ROBIN_GUILD.timeTable[0]:
+    # elif now + delta(minutes=60) > guild.timeTable[0]:
     #     while True:
-    #         if len(ROBIN_GUILD.timeTable) == 0: break
-    #         del ROBIN_GUILD.timeTable[0]
-    #         if now + delta(minutes=60) <= ROBIN_GUILD.timeTable[0]: break
+    #         if len(guild.timeTable) == 0: break
+    #         del guild.timeTable[0]
+    #         if now + delta(minutes=60) <= guild.timeTable[0]: break
 
 ##############################################################################################
 ##############################################################################################
@@ -230,7 +235,7 @@ async def getTimetable(updateStatus:bool=True) -> list[dt]:
         # 編成員Fは「全兵団」の開催時刻を扱う。過ぎた時刻は除外する。
         if schedule.is_all_forces and schedule.datetime > now30:
             timeTable.append(schedule.datetime)
-    if updateStatus:
+    if updateStatus and timeTable:
         await client.change_presence(activity=discord.CustomActivity(name=timeTable[0].strftime("Next:%H時")), status=discord.Status.online)
     print(f'{dt.now()} Timetable was get')
     return timeTable
@@ -263,7 +268,6 @@ def joinLeaveMembers(guild:discord.Guild, month:delta, exclusionRole:discord.Rol
 
 async def autoJoinParticipant(user:discord.Member, event:EventInstance):
     '''最小パーティに参加申請'''
-    global ROBIN_GUILD
     minParty:LightParty|None = None
     for party in event.parties:
         if isinstance(party, LightParty):
@@ -282,7 +286,8 @@ async def autoJoinParticipant(user:discord.Member, event:EventInstance):
 def createSpeedParties(participants:list[Participant], event:EventInstance) -> list[SpeedParty]:
     """formation.py の汎用編成結果を Discord 用 SpeedParty に変換する。"""
     participantRoles = {participant:set(participant.roles) for participant in participants}
-    formation = {role:info.count for role, info in ROBIN_GUILD.ROLES.items()}
+    guild = event.guild
+    formation = {role:info.count for role, info in guild.ROLES.items()}
     formedParties = formSpeedParties(participantRoles, formation)
 
     # 旧 speedFormation と同様、成立したフルパーティの参加者を元リストから除く。
@@ -325,7 +330,8 @@ def pickParticipant(priorityPool:list[Participant], normalPool:list[Participant]
         return normalPool.pop(0)
     
 def revertParticipant(priorityPool:list[Participant], normalPool:list[Participant], participant:Participant):
-    if set(ROBIN_GUILD.PRIORITY_ROLE, ROBIN_GUILD.STATIC_PRIORITY_ROLE) & participant.roles:
+    guild = GUILDS.get(participant.user.guild.id)
+    if guild and {guild.PRIORITY_ROLE, guild.STATIC_PRIORITY_ROLE} & participant.roles:
         priorityPool.insert(0, participant)
     else:
         normalPool.insert(0, participant)
@@ -341,12 +347,13 @@ async def createNewParty(user:discord.Member, free:bool=False, event:EventInstan
     if event is None: raise ValueError("Party creation requires its event instance")
     if len(event.parties) == 0: newPartyNum = 1
     else: newPartyNum = max(map(lambda x:x.number, event.parties)) + 1
-    roles = {role for role in user.roles if role in ROBIN_GUILD.ROLES.keys()}
+    guild = event.guild
+    roles = {role for role in user.roles if role in guild.ROLES.keys()}
     newParty = LightParty(newPartyNum, [Participant(user, roles)], free=free, context=make_party_context(event))
-    newParty.message = await ROBIN_GUILD.PARTY_CH.send(newParty.getPartyMessage(ROBIN_GUILD.ROLES))
+    newParty.message = await guild.PARTY_CH.send(newParty.getPartyMessage(guild.ROLES))
     newParty.thread = await newParty.message.create_thread(name=f'Party:{newParty.number}', auto_archive_duration=60)
     newParty.threadControlMessage = await newParty.thread.send(view=PartyView(context=make_view_context(event), duration=((event.starts_at + delta(hours=1)) - dt.now()).total_seconds()))
-    await newParty.message.add_reaction(ROBIN_GUILD.RECRUITING_EMOJI)
+    await newParty.message.add_reaction(guild.RECRUITING_EMOJI)
     event.parties.append(newParty)
 
 #endregion
@@ -369,15 +376,22 @@ async def createNewParty(user:discord.Member, free:bool=False, event:EventInstan
 
 
 async def f_reboot(ctx:discord.ApplicationContext|None = None):
-    if ctx: await ctx.respond('再起動します')
-    await ROBIN_GUILD.COMMAND_CH.purge()
+    if ctx:
+        await ctx.respond('再起動します')
+        guild = GUILDS.get(ctx.guild.id) if ctx.guild else None
+        if guild:
+            await guild.COMMAND_CH.purge()
     Popen([executable, '-u'] + argv, cwd=getcwd())  # ボットを再起動
     await client.close()  # ボットを終了
     exit()
 
+
 async def f_stableReboot(ctx:discord.ApplicationContext|None = None):
-    if ctx: await ctx.respond('安定版再起動します')
-    await ROBIN_GUILD.COMMAND_CH.purge()
+    if ctx:
+        await ctx.respond('安定版再起動します')
+        guild = GUILDS.get(ctx.guild.id) if ctx.guild else None
+        if guild:
+            await guild.COMMAND_CH.purge()
     Popen(['git', 'checkout', '--force', 'main'], cwd=getcwd())
     Popen([executable, '-u'] + argv, cwd=getcwd())  # ボットを再起動
     await client.close()  # ボットを終了
@@ -385,97 +399,84 @@ async def f_stableReboot(ctx:discord.ApplicationContext|None = None):
 
 
 async def f_fetch():
-    global ROBIN_GUILD
-    # チャンネル・ギルドをゲット
+    # チャンネル・ギルドをゲット。既存インスタンスを再利用してイベント状態を保つ。
     with open('IDs.json') as f:
-        IDs = json.load(f)
+        guild_configs = json.load(f)
 
-    for guildInfo in [IDs[0]]:
-        ROBIN_GUILD = Guild(guildInfo['guildID'], client)
+    configured_guilds:dict[int, Guild] = {}
+    for guild_info in guild_configs:
+        guild_id = int(guild_info['guildID'])
+        guild = GUILDS.get(guild_id) or Guild(guild_id, client)
+        if guild.GUILD is None:
+            print(f'Configured guild is not available: {guild_id}')
+            continue
 
-        # チャンネルゲット
-        ROBIN_GUILD.PARTY_CH      = client.get_channel(guildInfo['channels']['party'])
-        ROBIN_GUILD.PARTY_CH_beta = client.get_channel(guildInfo['channels']['party-beta'])
-        ROBIN_GUILD.PARTY_LOG     = client.get_channel(guildInfo['channels']['party-log'])
-        ROBIN_GUILD.DEV_CH        = client.get_channel(guildInfo['channels']['develop'])
-        ROBIN_GUILD.COMMAND_CH    = client.get_channel(guildInfo['channels']['command'])
-        # 募集ログチャンネルは新しいキーを優先し、旧キーも読み込む。
-        ROBIN_GUILD.RECRUIT_LOG_CH = client.get_channel(
-            getCompatibleConfigValue(guildInfo['channels'], 'recruit-log', 'recluit-log')
+        channels = guild_info['channels']
+        guild.PARTY_CH = client.get_channel(channels['party'])
+        guild.PARTY_CH_beta = client.get_channel(channels['party-beta'])
+        guild.PARTY_LOG = client.get_channel(channels['party-log'])
+        guild.DEV_CH = client.get_channel(channels['develop'])
+        guild.COMMAND_CH = client.get_channel(channels['command'])
+        guild.RECRUIT_LOG_CH = client.get_channel(
+            getCompatibleConfigValue(channels, 'recruit-log', 'recluit-log')
         )
 
-        # 旧フォルダー名も互換性のため読み込み可能。
-        ROBIN_GUILD.recruitingMessageDirectory = getRecruitingMessageDirectory(ROBIN_GUILD.GUILD.id)
-        ROBIN_GUILD.recruitingMessageItems = getDirectoryItems(ROBIN_GUILD.recruitingMessageDirectory)
-        
-        # 絵文字ゲット
-        ROBIN_GUILD.RECRUITING_EMOJI =  client.get_emoji(getCompatibleConfigValue(guildInfo['emojis'], 'recruiting', 'recluting'))
-        ROBIN_GUILD.FULLPARTY_EMOJI =  client.get_emoji(guildInfo['emojis']['fullparty'])
-        ROBIN_GUILD.LIGHTPARTY_EMOJI = client.get_emoji(getCompatibleConfigValue(guildInfo['emojis'], 'liteparty', 'lightparty'))
+        guild.recruitingMessageDirectory = getRecruitingMessageDirectory(guild_id)
+        guild.recruitingMessageItems = getDirectoryItems(guild.recruitingMessageDirectory)
 
-        # ロールゲット
-        ROBIN_GUILD.ROLES = {
-                ROBIN_GUILD.GUILD.get_role(roleInfo['role']) : \
-                RoleInfo(client.get_emoji(roleInfo['emoji']), roleName, roleInfo['count']) \
-                    for roleName, roleInfo in guildInfo['raidRoles'].items()
-            }
-        ROBIN_GUILD.MEMBER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['member'])
-        ROBIN_GUILD.PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['priority'])
-        ROBIN_GUILD.STATIC_PRIORITY_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['staticPriority'])
-        ROBIN_GUILD.MASTER_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['master'])
-        ROBIN_GUILD.LITE_PARTY_ROLE = ROBIN_GUILD.GUILD.get_role(guildInfo['roles']['liteParty'])
+        emojis = guild_info['emojis']
+        guild.RECRUITING_EMOJI = client.get_emoji(getCompatibleConfigValue(emojis, 'recruiting', 'recluting'))
+        guild.FULLPARTY_EMOJI = client.get_emoji(emojis['fullparty'])
+        guild.LIGHTPARTY_EMOJI = client.get_emoji(getCompatibleConfigValue(emojis, 'liteparty', 'lightparty'))
 
-        await roleSetting(guildInfo)
+        guild.ROLES = {
+            guild.GUILD.get_role(role_info['role']):
+            RoleInfo(client.get_emoji(role_info['emoji']), role_name, role_info['count'])
+            for role_name, role_info in guild_info['raidRoles'].items()
+        }
+        guild.MEMBER_ROLE = guild.GUILD.get_role(guild_info['roles']['member'])
+        guild.PRIORITY_ROLE = guild.GUILD.get_role(guild_info['roles']['priority'])
+        guild.STATIC_PRIORITY_ROLE = guild.GUILD.get_role(guild_info['roles']['staticPriority'])
+        guild.MASTER_ROLE = guild.GUILD.get_role(guild_info['roles']['master'])
+        guild.LITE_PARTY_ROLE = guild.GUILD.get_role(guild_info['roles']['liteParty'])
 
-        await ROBIN_GUILD.GUILD.chunk()
+        await roleSetting(guild, guild_info)
+        await guild.GUILD.chunk()
+        configured_guilds[guild_id] = guild
 
-        print(f'Guild.GUILD.name: {ROBIN_GUILD.GUILD.name}: {ROBIN_GUILD.GUILD.id}')
-        print(f'Guild.PARTY_CH.name: {ROBIN_GUILD.PARTY_CH.name}: {ROBIN_GUILD.PARTY_CH.id}')
-        print(f'ROBIN_GUILD.PARTY_CH_beta: {ROBIN_GUILD.PARTY_CH_beta.name}: {ROBIN_GUILD.PARTY_CH_beta.id}')
-        print(f'ROBIN_GUILD.DEV_CH: {ROBIN_GUILD.DEV_CH.name}: {ROBIN_GUILD.DEV_CH.id}')
-        print(f'ROBIN_GUILD.COMMAND_CH: {ROBIN_GUILD.COMMAND_CH.name}: {ROBIN_GUILD.COMMAND_CH.id}')
-        print(f'ROBIN_GUILD.RECRUIT_LOG_CH: {ROBIN_GUILD.RECRUIT_LOG_CH.name}: {ROBIN_GUILD.RECRUIT_LOG_CH.id}')
-        print(f'ROBIN_GUILD.RECRUITING_EMOJI: {ROBIN_GUILD.RECRUITING_EMOJI.name}: {ROBIN_GUILD.RECRUITING_EMOJI.id}')
-        print(f'ROBIN_GUILD.FULLPARTY_EMOJI: {ROBIN_GUILD.FULLPARTY_EMOJI.name}: {ROBIN_GUILD.FULLPARTY_EMOJI.id}')
-        print(f'ROBIN_GUILD.LIGHTPARTY_EMOJI: {ROBIN_GUILD.LIGHTPARTY_EMOJI.name}: {ROBIN_GUILD.LIGHTPARTY_EMOJI.id}')
-        print(f'ROBIN_GUILD.MEMBER_ROLE: {ROBIN_GUILD.MEMBER_ROLE.name}: {ROBIN_GUILD.MEMBER_ROLE.id}')
-        print(f'ROBIN_GUILD.PRIORITY_ROLE: {ROBIN_GUILD.PRIORITY_ROLE.name}: {ROBIN_GUILD.PRIORITY_ROLE.id}')
-        print(f'ROBIN_GUILD.STATIC_PRIORITY_ROLE: {ROBIN_GUILD.STATIC_PRIORITY_ROLE.name}: {ROBIN_GUILD.STATIC_PRIORITY_ROLE.id}')
-        print(f'ROBIN_GUILD.LITE_PARTY_ROLE: {ROBIN_GUILD.LITE_PARTY_ROLE.name}: {ROBIN_GUILD.LITE_PARTY_ROLE.id}')
-        print('ROBIN_GUILD.ROLES:{')
-        for role, roleInfo in ROBIN_GUILD.ROLES.items():
-            print(f'\trole:{role}: .name:{roleInfo.name}, .emoji:{roleInfo.emoji}, .count:{roleInfo.count}')
-        print('}')
-        print('roleSetting:{')
+        print(f'Guild: {guild.GUILD.name}: {guild.GUILD.id}')
+        print(f'PARTY_CH: {guild.PARTY_CH.name}: {guild.PARTY_CH.id}')
+        print(f'PARTY_CH_beta: {guild.PARTY_CH_beta.name}: {guild.PARTY_CH_beta.id}')
+        print(f'DEV_CH: {guild.DEV_CH.name}: {guild.DEV_CH.id}')
+        print(f'COMMAND_CH: {guild.COMMAND_CH.name}: {guild.COMMAND_CH.id}')
+        print(f'RECRUIT_LOG_CH: {guild.RECRUIT_LOG_CH.name}: {guild.RECRUIT_LOG_CH.id}')
+
+    GUILDS.clear()
+    GUILDS.update(configured_guilds)
+
 
 register_slash_commands(
     client,
-    get_guild_state=lambda: ROBIN_GUILD,
+    get_guild_state=lambda guild_id: GUILDS.get(guild_id),
     get_timetable=getTimetable,
     reboot=f_reboot,
     fetch=f_fetch,
-    reboot_view=lambda: RebootView(context=VIEW_CONTEXT),
+    reboot_view=lambda guild_id: RebootView(context=make_view_context(guild_id=guild_id)),
 )
 
 
-async def roleSetting(guildInfo):
-    global ROBIN_GUILD
+async def roleSetting(guild:Guild, guild_info):
     # ロール設定チャンネル初期化
-    settingRoles = {
-        settingInfo['name']:
-        {'role':ROBIN_GUILD.GUILD.get_role(settingInfo['role']), 'emoji':client.get_emoji(settingInfo['emoji'])}
-        for settingInfo in guildInfo['settingRoles']
+    guild.settingRoles = {
+        setting_info['name']: {
+            'role': guild.GUILD.get_role(setting_info['role']),
+            'emoji': client.get_emoji(setting_info['emoji']),
+        }
+        for setting_info in guild_info['settingRoles']
     }
-    print('roleSetting:{')
-    for name, value in settingRoles.items():
-        print(f'\t{name}:', end='')
-        for k,v in value.items():
-            print(f' {k}:<{v.name}:{v.id}>', end='')
-        print()
-    print('}')
 
-    await ROBIN_GUILD.COMMAND_CH.purge()
-    ROBIN_GUILD.COMMAND_MSG = await command_message(ROBIN_GUILD.COMMAND_CH, settingRoles)
+    await guild.COMMAND_CH.purge()
+    guild.COMMAND_MSG = await command_message(guild.COMMAND_CH, guild.settingRoles)
 
 
 # @client.slash_command(name='f-get-leave-month', description='任意の月間不参加者抽出')
@@ -492,15 +493,22 @@ async def roleSetting(guildInfo):
 
 ##############################################################################################
 #region main
-def setRebootSchedule(schedule:discord.TextChannel|bool):
-    global rebootSchedule
-    rebootSchedule = schedule
-    ROBIN_GUILD.reboot_handled = False
+def setRebootSchedule(guild_id:int, schedule:discord.TextChannel|bool):
+    guild = GUILDS.get(guild_id)
+    if guild is None:
+        raise KeyError(f'Guild is not configured: {guild_id}')
+    guild.reboot_schedule = schedule
+    guild.reboot_handled = False
 
 
-def make_view_context(event=None):
+def make_view_context(event=None, guild_id:int|None=None):
+    def resolve_guild():
+        if event is not None:
+            return event.guild
+        return GUILDS.get(guild_id)
+
     return ViewContext(
-        get_guild=lambda: ROBIN_GUILD,
+        get_guild=resolve_guild,
         get_event=lambda: event,
         search_party=searchLightParty,
         light_party_type=LightParty,
@@ -513,13 +521,13 @@ def make_view_context(event=None):
         report_error=printTraceback,
         reboot=f_reboot,
         stable_reboot=f_stableReboot,
-        schedule_reboot=setRebootSchedule,
+        schedule_reboot=lambda schedule: setRebootSchedule(resolve_guild().GUILD.id, schedule),
     )
 
 
 def make_party_context(event):
     return PartyContext(
-        get_guild=lambda: ROBIN_GUILD,
+        get_guild=lambda: event.guild,
         get_event=lambda: event,
         approve_view=lambda **kwargs: ApproveView(context=make_view_context(event), **kwargs),
         dummy_approve_view=lambda: DummyApproveView(),
@@ -527,10 +535,8 @@ def make_party_context(event):
     )
 
 
-VIEW_CONTEXT = make_view_context()
-
 EVENT_RUNTIME = EventRuntime(
-    get_guild=lambda: ROBIN_GUILD,
+    get_guilds=lambda: tuple(GUILDS.values()),
     client=client,
     get_directory_items=getDirectoryItems,
     recruit_message_replace=recruitMessageReplace,
@@ -542,12 +548,11 @@ EVENT_RUNTIME = EventRuntime(
     pick_participant=pickParticipant,
     get_timetable=getTimetable,
     reboot=f_reboot,
-    get_reboot_schedule=lambda: rebootSchedule,
+    get_reboot_schedule=lambda guild: guild.reboot_schedule,
     participant_type=Participant,
     speed_party_type=SpeedParty,
     light_party_type=LightParty,
 )
-
 
 if __name__ == '__main__':
     print(f'##################################################################################')
