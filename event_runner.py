@@ -147,7 +147,7 @@ async def _run_event_instance(runtime, guild, event: EventInstance):
 
             # パーティ通知メッセージ
             await guild.PARTY_CH.send(event.starts_at.strftime('## %H時のパーティ編成が完了しました\n参加者は ___**サーバー3**___ へ\n原則、一番上がリーダーです'), \
-                                            view=FormationTopView(event=event, duration=((event.starts_at + delta(hours=1)) - dt.now()).total_seconds()))
+                                            view=runtime.formation_top_view(event, duration=((event.starts_at + delta(hours=1)) - dt.now()).total_seconds()))
 
             for party in event.parties:
                 party.message = await guild.PARTY_CH.send(party.getPartyMessage(guild.ROLES))
@@ -178,7 +178,7 @@ async def _run_event_instance(runtime, guild, event: EventInstance):
                 if party.membersNum() < 4: # 4人以下の時はリアクション
                     await party.message.add_reaction(guild.RECRUITING_EMOJI)
                 party.threadControlMessage = await party.thread.send(
-                    view=PartyView(event=event, duration=((event.starts_at + delta(hours=1)) - dt.now()).total_seconds()))
+                    view=runtime.party_view(event, duration=((event.starts_at + delta(hours=1)) - dt.now()).total_seconds()))
                 if party.alliance:
                     try:
                         await party.sendAllianceInfo()
