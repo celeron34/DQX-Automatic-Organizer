@@ -28,6 +28,8 @@ class Guild:
         self.events:list[EventInstance] = [] # 進行中または今後予定されているイベント
         self.timetable_lock = asyncio.Lock() # 複数イベントが同じ分に終了する際の更新保護
         self.reboot_handled = False
+        self.reboot_schedule:discord.TextChannel|bool = False
+        self.settingRoles:dict[str, Any] = {}
         # self.timeTableThread:ThreadPoolExecutor = None # タイムテーブルスレッド
 
         # リアクション
@@ -67,3 +69,5 @@ class Guild:
             )
             for starts_at in starts_at_list
         ]
+        for event in self.events:
+            event.guild = self
